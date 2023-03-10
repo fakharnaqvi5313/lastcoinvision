@@ -17,6 +17,7 @@ environment:
 cache:
 - C:\tools\vcpkg\installed -> build_msvc\vcpkg-packages.txt
 - C:\Qt5.9.8_x64_static_vs2019
+
 install:
 # Disable zmq test for now since python zmq library on Windows would cause Access violation sometimes.
 # - cmd: pip install zmq
