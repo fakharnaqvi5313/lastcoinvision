@@ -2,6 +2,7 @@
 # Align closing bracket with visual indentation.
 align_closing_bracket_with_visual_indent=True
 
+# Align
 # Allow dictionary keys to exist on multiple lines. For example:
 #
 #   x = {
