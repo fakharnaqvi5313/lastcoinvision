@@ -143,10 +143,12 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // To avoid wrong/empty versions, the initial version should be set to 1.
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// BeginBlock contains the logic that is automatically triggered at the beginning of each block.
-// The begin block implementation is optional.
-func (am AppModule) BeginBlock(_ context.Context) error {
-	return nil
+// BeginBlock transfers the decay-curve-determined staking reward for the
+// elapsed time since the previous block from the staking rewards pool into
+// the fee collector, where x/distribution picks it up and allocates it to
+// the proposer/validators/community pool exactly like transaction fees.
+func (am AppModule) BeginBlock(ctx context.Context) error {
+	return am.keeper.EmitBlockRewards(sdk.UnwrapSDKContext(ctx))
 }
 
 // EndBlock contains the logic that is automatically triggered at the end of each block.
@@ -202,6 +204,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		in.StoreService,
 		in.Logger,
 		authority.String(),
+		in.BankKeeper,
 	)
 	m := NewAppModule(
 		in.Cdc,

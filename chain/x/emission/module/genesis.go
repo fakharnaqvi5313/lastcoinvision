@@ -10,9 +10,17 @@ import (
 // InitGenesis initializes the module's state from a provided genesis state.
 func InitGenesis(ctx sdk.Context, k keeper.Keeper, genState types.GenesisState) {
 	// this line is used by starport scaffolding # genesis/module/init
-	if err := k.SetParams(ctx, genState.Params); err != nil {
+	params := genState.Params
+	if params.StartTime == 0 {
+		// Anchor the decay curve to actual genesis time rather than the
+		// zero value, unless a genesis file explicitly overrides it (e.g.
+		// to align a testnet's curve with an earlier mainnet's).
+		params.StartTime = ctx.BlockTime().Unix()
+	}
+	if err := k.SetParams(ctx, params); err != nil {
 		panic(err)
 	}
+	k.SetLastEmissionTime(ctx, params.StartTime)
 }
 
 // ExportGenesis returns the module's exported genesis.

@@ -104,6 +104,12 @@ var (
 	beginBlockers = []string{
 		// cosmos sdk modules
 		minttypes.ModuleName,
+		// chain modules: emission must run after mint (which is pinned to
+		// zero inflation, see genesis) and before distribution, so the
+		// staking-rewards transfer for this block lands in the fee
+		// collector in time for distribution's BeginBlocker to allocate it
+		// to the proposer/validators/community pool alongside tx fees.
+		emissionmoduletypes.ModuleName,
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -116,8 +122,6 @@ var (
 		ibctransfertypes.ModuleName,
 		icatypes.ModuleName,
 		ibcfeetypes.ModuleName,
-		// chain modules
-		emissionmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -157,6 +161,10 @@ var (
 		{Account: ibctransfertypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
 		{Account: ibcfeetypes.ModuleName},
 		{Account: icatypes.ModuleName},
+		// Genesis-funded staking rewards pool (12% of total supply). No
+		// Minter/Burner permission: x/emission only ever transfers out of
+		// this pre-funded balance, never mints.
+		{Account: emissionmoduletypes.StakingRewardsAccountName},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 

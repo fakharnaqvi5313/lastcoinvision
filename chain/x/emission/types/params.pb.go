@@ -4,14 +4,14 @@
 package types
 
 import (
+	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
-	io "io"
-	math "math"
-	math_bits "math/bits"
-
 	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
+	io "io"
+	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -27,6 +27,23 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Params defines the parameters for the module.
 type Params struct {
+	// mint_denom is the denom emitted as staking rewards (ulcv).
+	MintDenom string `protobuf:"bytes,1,opt,name=mint_denom,json=mintDenom,proto3" json:"mint_denom,omitempty"`
+	// staking_rewards_account is the name of the module account that holds the
+	// genesis-funded staking rewards pool that emissions are transferred from.
+	StakingRewardsAccount string `protobuf:"bytes,2,opt,name=staking_rewards_account,json=stakingRewardsAccount,proto3" json:"staking_rewards_account,omitempty"`
+	// total_reward_pool is the asymptotic total amount (in mint_denom) that will
+	// be emitted over the lifetime of the decay curve as elapsed time goes to
+	// infinity. Emissions are transfers out of the pre-funded
+	// staking_rewards_account, never new minting, so this must not exceed the
+	// amount that account was funded with at genesis.
+	TotalRewardPool cosmossdk_io_math.Int `protobuf:"bytes,3,opt,name=total_reward_pool,json=totalRewardPool,proto3,customtype=cosmossdk.io/math.Int" json:"total_reward_pool"`
+	// half_life_seconds is the exponential decay half-life: the emission rate
+	// halves every half_life_seconds of elapsed chain time.
+	HalfLifeSeconds int64 `protobuf:"varint,4,opt,name=half_life_seconds,json=halfLifeSeconds,proto3" json:"half_life_seconds,omitempty"`
+	// start_time is the unix time (seconds) the decay curve is anchored to,
+	// set once at genesis and not intended to change afterwards.
+	StartTime int64 `protobuf:"varint,5,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 }
 
 func (m *Params) Reset()         { *m = Params{} }
@@ -62,6 +79,34 @@ func (m *Params) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Params proto.InternalMessageInfo
 
+func (m *Params) GetMintDenom() string {
+	if m != nil {
+		return m.MintDenom
+	}
+	return ""
+}
+
+func (m *Params) GetStakingRewardsAccount() string {
+	if m != nil {
+		return m.StakingRewardsAccount
+	}
+	return ""
+}
+
+func (m *Params) GetHalfLifeSeconds() int64 {
+	if m != nil {
+		return m.HalfLifeSeconds
+	}
+	return 0
+}
+
+func (m *Params) GetStartTime() int64 {
+	if m != nil {
+		return m.StartTime
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*Params)(nil), "lcv.emission.Params")
 }
@@ -69,18 +114,30 @@ func init() {
 func init() { proto.RegisterFile("lcv/emission/params.proto", fileDescriptor_ef7715ee7895d18d) }
 
 var fileDescriptor_ef7715ee7895d18d = []byte{
-	// 174 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0xcc, 0x49, 0x2e, 0xd3,
-	0x4f, 0xcd, 0xcd, 0x2c, 0x2e, 0xce, 0xcc, 0xcf, 0xd3, 0x2f, 0x48, 0x2c, 0x4a, 0xcc, 0x2d, 0xd6,
-	0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0xc9, 0x49, 0x2e, 0xd3, 0x83, 0x49, 0x49, 0x09, 0x26,
-	0xe6, 0x66, 0xe6, 0xe5, 0xeb, 0x83, 0x49, 0x88, 0x02, 0x29, 0x91, 0xf4, 0xfc, 0xf4, 0x7c, 0x30,
-	0x53, 0x1f, 0xc4, 0x82, 0x88, 0x2a, 0x69, 0x70, 0xb1, 0x05, 0x80, 0x8d, 0xb1, 0x92, 0x7b, 0xb1,
-	0x40, 0x9e, 0xb1, 0xeb, 0xf9, 0x06, 0x2d, 0x51, 0x90, 0x25, 0x15, 0x08, 0x6b, 0x20, 0xf2, 0x4e,
-	0x1e, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x84, 0xc7,
-	0x72, 0x0c, 0x17, 0x1e, 0xcb, 0x31, 0xdc, 0x78, 0x2c, 0xc7, 0x10, 0xa5, 0x97, 0x9e, 0x59, 0x92,
-	0x51, 0x9a, 0xa4, 0x97, 0x9c, 0x9f, 0xab, 0x9f, 0x93, 0x58, 0x5c, 0x92, 0x9c, 0x9f, 0x99, 0x57,
-	0x96, 0x09, 0xd6, 0x8b, 0x66, 0x54, 0x49, 0x65, 0x41, 0x6a, 0x71, 0x12, 0x1b, 0xd8, 0x6a, 0x63,
-	0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0x51, 0x72, 0x02, 0xeb, 0xce, 0x00, 0x00, 0x00,
+	// 353 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0xb1, 0x4a, 0x2b, 0x41,
+	0x18, 0x85, 0x77, 0x93, 0x7b, 0x03, 0x59, 0x2e, 0x84, 0x2c, 0x37, 0xb8, 0x06, 0xb2, 0x09, 0x56,
+	0x21, 0xc5, 0x6e, 0x21, 0x58, 0xd8, 0x19, 0x2c, 0x0c, 0x58, 0x84, 0xd5, 0xca, 0x66, 0x99, 0xcc,
+	0x4e, 0x36, 0x43, 0x66, 0xe6, 0x5f, 0x76, 0xfe, 0x44, 0x7d, 0x05, 0x2b, 0x1b, 0x7b, 0x1f, 0xc1,
+	0xc7, 0x48, 0x99, 0x52, 0x2c, 0x82, 0x24, 0x85, 0x3e, 0x86, 0xec, 0x6c, 0x44, 0xb0, 0x19, 0x7e,
+	0xce, 0x77, 0xce, 0x81, 0x39, 0xce, 0xa1, 0xa0, 0xcb, 0x90, 0x49, 0xae, 0x35, 0x07, 0x15, 0x66,
+	0x24, 0x27, 0x52, 0x07, 0x59, 0x0e, 0x08, 0xee, 0x3f, 0x41, 0x97, 0xc1, 0x37, 0x6a, 0x37, 0x89,
+	0xe4, 0x0a, 0x42, 0xf3, 0x96, 0x86, 0xf6, 0xff, 0x14, 0x52, 0x30, 0x67, 0x58, 0x5c, 0xa5, 0x7a,
+	0xf4, 0x54, 0x71, 0x6a, 0x63, 0xd3, 0xe3, 0x76, 0x1c, 0x47, 0x72, 0x85, 0x71, 0xc2, 0x14, 0x48,
+	0xcf, 0xee, 0xd9, 0xfd, 0x7a, 0x54, 0x2f, 0x94, 0xf3, 0x42, 0x70, 0x4f, 0x9c, 0x03, 0x8d, 0x64,
+	0xce, 0x55, 0x1a, 0xe7, 0xec, 0x96, 0xe4, 0x89, 0x8e, 0x09, 0xa5, 0xb0, 0x50, 0xe8, 0x55, 0x8c,
+	0xb7, 0xb5, 0xc7, 0x51, 0x49, 0xcf, 0x4a, 0xe8, 0x8e, 0x9c, 0x26, 0x02, 0x12, 0xb1, 0x4f, 0xc5,
+	0x19, 0x80, 0xf0, 0xaa, 0x45, 0x62, 0xd8, 0x59, 0x6d, 0xba, 0xd6, 0xdb, 0xa6, 0xdb, 0xa2, 0xa0,
+	0x25, 0x68, 0x9d, 0xcc, 0x03, 0x0e, 0xa1, 0x24, 0x38, 0x0b, 0x46, 0x0a, 0xa3, 0x86, 0xc9, 0x95,
+	0x75, 0x63, 0x00, 0xe1, 0x0e, 0x9c, 0xe6, 0x8c, 0x88, 0x69, 0x2c, 0xf8, 0x94, 0xc5, 0x9a, 0x51,
+	0x50, 0x89, 0xf6, 0xfe, 0xf4, 0xec, 0x7e, 0x35, 0x6a, 0x14, 0xe0, 0x92, 0x4f, 0xd9, 0x55, 0x29,
+	0x17, 0xbf, 0xd1, 0x48, 0x72, 0x8c, 0x91, 0x4b, 0xe6, 0xfd, 0x35, 0xa6, 0xba, 0x51, 0xae, 0xb9,
+	0x64, 0xa7, 0xfe, 0xe7, 0x73, 0xd7, 0x7e, 0xf8, 0x78, 0x19, 0xb4, 0x8a, 0x49, 0xef, 0x7e, 0x46,
+	0x2d, 0xc7, 0x18, 0x5e, 0xac, 0xb6, 0xbe, 0xbd, 0xde, 0xfa, 0xf6, 0xfb, 0xd6, 0xb7, 0x1f, 0x77,
+	0xbe, 0xb5, 0xde, 0xf9, 0xd6, 0xeb, 0xce, 0xb7, 0x6e, 0x82, 0x94, 0xe3, 0x6c, 0x31, 0x09, 0x28,
+	0xc8, 0x50, 0x10, 0x8d, 0x14, 0xb8, 0x5a, 0x72, 0x93, 0xfd, 0x55, 0x85, 0xf7, 0x19, 0xd3, 0x93,
+	0x9a, 0x19, 0xfa, 0xf8, 0x2b, 0x00, 0x00, 0xff, 0xff, 0xe0, 0x7f, 0xf7, 0x82, 0xbc, 0x01, 0x00,
+	0x00,
 }
 
 func (this *Params) Equal(that interface{}) bool {
@@ -100,6 +157,21 @@ func (this *Params) Equal(that interface{}) bool {
 	if that1 == nil {
 		return this == nil
 	} else if this == nil {
+		return false
+	}
+	if this.MintDenom != that1.MintDenom {
+		return false
+	}
+	if this.StakingRewardsAccount != that1.StakingRewardsAccount {
+		return false
+	}
+	if !this.TotalRewardPool.Equal(that1.TotalRewardPool) {
+		return false
+	}
+	if this.HalfLifeSeconds != that1.HalfLifeSeconds {
+		return false
+	}
+	if this.StartTime != that1.StartTime {
 		return false
 	}
 	return true
@@ -124,6 +196,40 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.StartTime != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.StartTime))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.HalfLifeSeconds != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.HalfLifeSeconds))
+		i--
+		dAtA[i] = 0x20
+	}
+	{
+		size := m.TotalRewardPool.Size()
+		i -= size
+		if _, err := m.TotalRewardPool.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintParams(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x1a
+	if len(m.StakingRewardsAccount) > 0 {
+		i -= len(m.StakingRewardsAccount)
+		copy(dAtA[i:], m.StakingRewardsAccount)
+		i = encodeVarintParams(dAtA, i, uint64(len(m.StakingRewardsAccount)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.MintDenom) > 0 {
+		i -= len(m.MintDenom)
+		copy(dAtA[i:], m.MintDenom)
+		i = encodeVarintParams(dAtA, i, uint64(len(m.MintDenom)))
+		i--
+		dAtA[i] = 0xa
+	}
 	return len(dAtA) - i, nil
 }
 
@@ -144,6 +250,22 @@ func (m *Params) Size() (n int) {
 	}
 	var l int
 	_ = l
+	l = len(m.MintDenom)
+	if l > 0 {
+		n += 1 + l + sovParams(uint64(l))
+	}
+	l = len(m.StakingRewardsAccount)
+	if l > 0 {
+		n += 1 + l + sovParams(uint64(l))
+	}
+	l = m.TotalRewardPool.Size()
+	n += 1 + l + sovParams(uint64(l))
+	if m.HalfLifeSeconds != 0 {
+		n += 1 + sovParams(uint64(m.HalfLifeSeconds))
+	}
+	if m.StartTime != 0 {
+		n += 1 + sovParams(uint64(m.StartTime))
+	}
 	return n
 }
 
@@ -182,6 +304,142 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: Params: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MintDenom", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MintDenom = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StakingRewardsAccount", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StakingRewardsAccount = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TotalRewardPool", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthParams
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthParams
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.TotalRewardPool.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HalfLifeSeconds", wireType)
+			}
+			m.HalfLifeSeconds = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.HalfLifeSeconds |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StartTime", wireType)
+			}
+			m.StartTime = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowParams
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.StartTime |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipParams(dAtA[iNdEx:])

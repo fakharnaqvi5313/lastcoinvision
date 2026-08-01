@@ -14,6 +14,11 @@ docker-compose version specified in the Phase A acceptance criteria and built ou
 Phase H is added as `make devnet-docker` once Docker is available, without changing the
 process-based target. Both will be kept and tested going forward.
 
+**Update 2026-08-01:** Docker Desktop is now installed and verified working (`docker run
+hello-world` succeeds) after a clean reinstall. The process-based `make devnet` remains the
+primary Phase A target since it's already built and tested; `make devnet-docker` can be
+added opportunistically but isn't required to unblock Phase A anymore.
+
 ## 2026-08-01 — Pin Go toolchain to 1.25.0, not the system's 1.26.5
 
 The dev machine has Go 1.26.5 installed. `github.com/bytedance/sonic` v1.12.3 (pulled in

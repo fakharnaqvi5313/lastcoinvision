@@ -19,12 +19,26 @@ func TestGenesisState_Validate(t *testing.T) {
 			valid:    true,
 		},
 		{
-			desc:     "valid genesis state",
+			desc: "valid genesis state",
 			genState: &types.GenesisState{
-
+				Params: types.DefaultParams(),
 				// this line is used by starport scaffolding # types/genesis/validField
 			},
 			valid: true,
+		},
+		{
+			desc: "invalid: empty mint denom",
+			genState: &types.GenesisState{
+				Params: types.NewParams("", types.StakingRewardsAccountName, types.DefaultTotalRewardPool, types.DefaultHalfLifeSeconds, 0),
+			},
+			valid: false,
+		},
+		{
+			desc: "invalid: zero half life",
+			genState: &types.GenesisState{
+				Params: types.NewParams(types.DefaultMintDenom, types.StakingRewardsAccountName, types.DefaultTotalRewardPool, 0, 0),
+			},
+			valid: false,
 		},
 		// this line is used by starport scaffolding # types/genesis/testcase
 	}

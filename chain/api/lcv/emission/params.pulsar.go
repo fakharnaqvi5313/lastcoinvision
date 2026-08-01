@@ -2,26 +2,35 @@
 package emission
 
 import (
-	fmt "fmt"
-	io "io"
-	reflect "reflect"
-	sync "sync"
-
 	_ "cosmossdk.io/api/amino"
+	fmt "fmt"
 	runtime "github.com/cosmos/cosmos-proto/runtime"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	io "io"
+	reflect "reflect"
+	sync "sync"
 )
 
 var (
-	md_Params protoreflect.MessageDescriptor
+	md_Params                         protoreflect.MessageDescriptor
+	fd_Params_mint_denom              protoreflect.FieldDescriptor
+	fd_Params_staking_rewards_account protoreflect.FieldDescriptor
+	fd_Params_total_reward_pool       protoreflect.FieldDescriptor
+	fd_Params_half_life_seconds       protoreflect.FieldDescriptor
+	fd_Params_start_time              protoreflect.FieldDescriptor
 )
 
 func init() {
 	file_lcv_emission_params_proto_init()
 	md_Params = File_lcv_emission_params_proto.Messages().ByName("Params")
+	fd_Params_mint_denom = md_Params.Fields().ByName("mint_denom")
+	fd_Params_staking_rewards_account = md_Params.Fields().ByName("staking_rewards_account")
+	fd_Params_total_reward_pool = md_Params.Fields().ByName("total_reward_pool")
+	fd_Params_half_life_seconds = md_Params.Fields().ByName("half_life_seconds")
+	fd_Params_start_time = md_Params.Fields().ByName("start_time")
 }
 
 var _ protoreflect.Message = (*fastReflection_Params)(nil)
@@ -89,6 +98,36 @@ func (x *fastReflection_Params) Interface() protoreflect.ProtoMessage {
 // While iterating, mutating operations may only be performed
 // on the current field descriptor.
 func (x *fastReflection_Params) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.MintDenom != "" {
+		value := protoreflect.ValueOfString(x.MintDenom)
+		if !f(fd_Params_mint_denom, value) {
+			return
+		}
+	}
+	if x.StakingRewardsAccount != "" {
+		value := protoreflect.ValueOfString(x.StakingRewardsAccount)
+		if !f(fd_Params_staking_rewards_account, value) {
+			return
+		}
+	}
+	if x.TotalRewardPool != "" {
+		value := protoreflect.ValueOfString(x.TotalRewardPool)
+		if !f(fd_Params_total_reward_pool, value) {
+			return
+		}
+	}
+	if x.HalfLifeSeconds != int64(0) {
+		value := protoreflect.ValueOfInt64(x.HalfLifeSeconds)
+		if !f(fd_Params_half_life_seconds, value) {
+			return
+		}
+	}
+	if x.StartTime != int64(0) {
+		value := protoreflect.ValueOfInt64(x.StartTime)
+		if !f(fd_Params_start_time, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -104,6 +143,16 @@ func (x *fastReflection_Params) Range(f func(protoreflect.FieldDescriptor, proto
 // a repeated field is populated if it is non-empty.
 func (x *fastReflection_Params) Has(fd protoreflect.FieldDescriptor) bool {
 	switch fd.FullName() {
+	case "lcv.emission.Params.mint_denom":
+		return x.MintDenom != ""
+	case "lcv.emission.Params.staking_rewards_account":
+		return x.StakingRewardsAccount != ""
+	case "lcv.emission.Params.total_reward_pool":
+		return x.TotalRewardPool != ""
+	case "lcv.emission.Params.half_life_seconds":
+		return x.HalfLifeSeconds != int64(0)
+	case "lcv.emission.Params.start_time":
+		return x.StartTime != int64(0)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: lcv.emission.Params"))
@@ -120,6 +169,16 @@ func (x *fastReflection_Params) Has(fd protoreflect.FieldDescriptor) bool {
 // Clear is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_Params) Clear(fd protoreflect.FieldDescriptor) {
 	switch fd.FullName() {
+	case "lcv.emission.Params.mint_denom":
+		x.MintDenom = ""
+	case "lcv.emission.Params.staking_rewards_account":
+		x.StakingRewardsAccount = ""
+	case "lcv.emission.Params.total_reward_pool":
+		x.TotalRewardPool = ""
+	case "lcv.emission.Params.half_life_seconds":
+		x.HalfLifeSeconds = int64(0)
+	case "lcv.emission.Params.start_time":
+		x.StartTime = int64(0)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: lcv.emission.Params"))
@@ -136,6 +195,21 @@ func (x *fastReflection_Params) Clear(fd protoreflect.FieldDescriptor) {
 // of the value; to obtain a mutable reference, use Mutable.
 func (x *fastReflection_Params) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
 	switch descriptor.FullName() {
+	case "lcv.emission.Params.mint_denom":
+		value := x.MintDenom
+		return protoreflect.ValueOfString(value)
+	case "lcv.emission.Params.staking_rewards_account":
+		value := x.StakingRewardsAccount
+		return protoreflect.ValueOfString(value)
+	case "lcv.emission.Params.total_reward_pool":
+		value := x.TotalRewardPool
+		return protoreflect.ValueOfString(value)
+	case "lcv.emission.Params.half_life_seconds":
+		value := x.HalfLifeSeconds
+		return protoreflect.ValueOfInt64(value)
+	case "lcv.emission.Params.start_time":
+		value := x.StartTime
+		return protoreflect.ValueOfInt64(value)
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: lcv.emission.Params"))
@@ -156,6 +230,16 @@ func (x *fastReflection_Params) Get(descriptor protoreflect.FieldDescriptor) pro
 // Set is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_Params) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
 	switch fd.FullName() {
+	case "lcv.emission.Params.mint_denom":
+		x.MintDenom = value.Interface().(string)
+	case "lcv.emission.Params.staking_rewards_account":
+		x.StakingRewardsAccount = value.Interface().(string)
+	case "lcv.emission.Params.total_reward_pool":
+		x.TotalRewardPool = value.Interface().(string)
+	case "lcv.emission.Params.half_life_seconds":
+		x.HalfLifeSeconds = value.Int()
+	case "lcv.emission.Params.start_time":
+		x.StartTime = value.Int()
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: lcv.emission.Params"))
@@ -176,6 +260,16 @@ func (x *fastReflection_Params) Set(fd protoreflect.FieldDescriptor, value proto
 // Mutable is a mutating operation and unsafe for concurrent use.
 func (x *fastReflection_Params) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "lcv.emission.Params.mint_denom":
+		panic(fmt.Errorf("field mint_denom of message lcv.emission.Params is not mutable"))
+	case "lcv.emission.Params.staking_rewards_account":
+		panic(fmt.Errorf("field staking_rewards_account of message lcv.emission.Params is not mutable"))
+	case "lcv.emission.Params.total_reward_pool":
+		panic(fmt.Errorf("field total_reward_pool of message lcv.emission.Params is not mutable"))
+	case "lcv.emission.Params.half_life_seconds":
+		panic(fmt.Errorf("field half_life_seconds of message lcv.emission.Params is not mutable"))
+	case "lcv.emission.Params.start_time":
+		panic(fmt.Errorf("field start_time of message lcv.emission.Params is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: lcv.emission.Params"))
@@ -189,6 +283,16 @@ func (x *fastReflection_Params) Mutable(fd protoreflect.FieldDescriptor) protore
 // For lists, maps, and messages, this returns a new, empty, mutable value.
 func (x *fastReflection_Params) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
 	switch fd.FullName() {
+	case "lcv.emission.Params.mint_denom":
+		return protoreflect.ValueOfString("")
+	case "lcv.emission.Params.staking_rewards_account":
+		return protoreflect.ValueOfString("")
+	case "lcv.emission.Params.total_reward_pool":
+		return protoreflect.ValueOfString("")
+	case "lcv.emission.Params.half_life_seconds":
+		return protoreflect.ValueOfInt64(int64(0))
+	case "lcv.emission.Params.start_time":
+		return protoreflect.ValueOfInt64(int64(0))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: lcv.emission.Params"))
@@ -258,6 +362,24 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 		var n int
 		var l int
 		_ = l
+		l = len(x.MintDenom)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.StakingRewardsAccount)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		l = len(x.TotalRewardPool)
+		if l > 0 {
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.HalfLifeSeconds != 0 {
+			n += 1 + runtime.Sov(uint64(x.HalfLifeSeconds))
+		}
+		if x.StartTime != 0 {
+			n += 1 + runtime.Sov(uint64(x.StartTime))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -286,6 +408,37 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.StartTime != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.StartTime))
+			i--
+			dAtA[i] = 0x28
+		}
+		if x.HalfLifeSeconds != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.HalfLifeSeconds))
+			i--
+			dAtA[i] = 0x20
+		}
+		if len(x.TotalRewardPool) > 0 {
+			i -= len(x.TotalRewardPool)
+			copy(dAtA[i:], x.TotalRewardPool)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.TotalRewardPool)))
+			i--
+			dAtA[i] = 0x1a
+		}
+		if len(x.StakingRewardsAccount) > 0 {
+			i -= len(x.StakingRewardsAccount)
+			copy(dAtA[i:], x.StakingRewardsAccount)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.StakingRewardsAccount)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if len(x.MintDenom) > 0 {
+			i -= len(x.MintDenom)
+			copy(dAtA[i:], x.MintDenom)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.MintDenom)))
+			i--
+			dAtA[i] = 0xa
 		}
 		if input.Buf != nil {
 			input.Buf = append(input.Buf, dAtA...)
@@ -336,6 +489,140 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: Params: illegal tag %d (wire type %d)", fieldNum, wire)
 			}
 			switch fieldNum {
+			case 1:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field MintDenom", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.MintDenom = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field StakingRewardsAccount", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.StakingRewardsAccount = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 3:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field TotalRewardPool", wireType)
+				}
+				var stringLen uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLen |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLen := int(stringLen)
+				if intStringLen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + intStringLen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.TotalRewardPool = string(dAtA[iNdEx:postIndex])
+				iNdEx = postIndex
+			case 4:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field HalfLifeSeconds", wireType)
+				}
+				x.HalfLifeSeconds = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.HalfLifeSeconds |= int64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			case 5:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field StartTime", wireType)
+				}
+				x.StartTime = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.StartTime |= int64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -389,6 +676,24 @@ type Params struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	// mint_denom is the denom emitted as staking rewards (ulcv).
+	MintDenom string `protobuf:"bytes,1,opt,name=mint_denom,json=mintDenom,proto3" json:"mint_denom,omitempty"`
+	// staking_rewards_account is the name of the module account that holds the
+	// genesis-funded staking rewards pool that emissions are transferred from.
+	StakingRewardsAccount string `protobuf:"bytes,2,opt,name=staking_rewards_account,json=stakingRewardsAccount,proto3" json:"staking_rewards_account,omitempty"`
+	// total_reward_pool is the asymptotic total amount (in mint_denom) that will
+	// be emitted over the lifetime of the decay curve as elapsed time goes to
+	// infinity. Emissions are transfers out of the pre-funded
+	// staking_rewards_account, never new minting, so this must not exceed the
+	// amount that account was funded with at genesis.
+	TotalRewardPool string `protobuf:"bytes,3,opt,name=total_reward_pool,json=totalRewardPool,proto3" json:"total_reward_pool,omitempty"`
+	// half_life_seconds is the exponential decay half-life: the emission rate
+	// halves every half_life_seconds of elapsed chain time.
+	HalfLifeSeconds int64 `protobuf:"varint,4,opt,name=half_life_seconds,json=halfLifeSeconds,proto3" json:"half_life_seconds,omitempty"`
+	// start_time is the unix time (seconds) the decay curve is anchored to,
+	// set once at genesis and not intended to change afterwards.
+	StartTime int64 `protobuf:"varint,5,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 }
 
 func (x *Params) Reset() {
@@ -411,6 +716,41 @@ func (*Params) Descriptor() ([]byte, []int) {
 	return file_lcv_emission_params_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *Params) GetMintDenom() string {
+	if x != nil {
+		return x.MintDenom
+	}
+	return ""
+}
+
+func (x *Params) GetStakingRewardsAccount() string {
+	if x != nil {
+		return x.StakingRewardsAccount
+	}
+	return ""
+}
+
+func (x *Params) GetTotalRewardPool() string {
+	if x != nil {
+		return x.TotalRewardPool
+	}
+	return ""
+}
+
+func (x *Params) GetHalfLifeSeconds() int64 {
+	if x != nil {
+		return x.HalfLifeSeconds
+	}
+	return 0
+}
+
+func (x *Params) GetStartTime() int64 {
+	if x != nil {
+		return x.StartTime
+	}
+	return 0
+}
+
 var File_lcv_emission_params_proto protoreflect.FileDescriptor
 
 var file_lcv_emission_params_proto_rawDesc = []byte{
@@ -419,20 +759,35 @@ var file_lcv_emission_params_proto_rawDesc = []byte{
 	0x2e, 0x65, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x1a, 0x11, 0x61, 0x6d, 0x69, 0x6e, 0x6f,
 	0x2f, 0x61, 0x6d, 0x69, 0x6e, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x14, 0x67, 0x6f,
 	0x67, 0x6f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x67, 0x6f, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x22, 0x28, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x3a, 0x1e, 0xe8, 0xa0,
-	0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x15, 0x6c, 0x63, 0x76, 0x2f, 0x78, 0x2f, 0x65, 0x6d, 0x69,
-	0x73, 0x73, 0x69, 0x6f, 0x6e, 0x2f, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0xa0, 0x01, 0x0a,
-	0x10, 0x63, 0x6f, 0x6d, 0x2e, 0x6c, 0x63, 0x76, 0x2e, 0x65, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f,
-	0x6e, 0x42, 0x0b, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01,
-	0x5a, 0x2e, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6c, 0x61, 0x73,
-	0x74, 0x63, 0x6f, 0x69, 0x6e, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x2f, 0x6c, 0x63, 0x76, 0x2f,
-	0x61, 0x70, 0x69, 0x2f, 0x6c, 0x63, 0x76, 0x2f, 0x65, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e,
-	0xa2, 0x02, 0x03, 0x4c, 0x45, 0x58, 0xaa, 0x02, 0x0c, 0x4c, 0x63, 0x76, 0x2e, 0x45, 0x6d, 0x69,
-	0x73, 0x73, 0x69, 0x6f, 0x6e, 0xca, 0x02, 0x0c, 0x4c, 0x63, 0x76, 0x5c, 0x45, 0x6d, 0x69, 0x73,
-	0x73, 0x69, 0x6f, 0x6e, 0xe2, 0x02, 0x18, 0x4c, 0x63, 0x76, 0x5c, 0x45, 0x6d, 0x69, 0x73, 0x73,
-	0x69, 0x6f, 0x6e, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea,
-	0x02, 0x0d, 0x4c, 0x63, 0x76, 0x3a, 0x3a, 0x45, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x6f, 0x22, 0x95, 0x02, 0x0a, 0x06, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x1d, 0x0a,
+	0x0a, 0x6d, 0x69, 0x6e, 0x74, 0x5f, 0x64, 0x65, 0x6e, 0x6f, 0x6d, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x09, 0x6d, 0x69, 0x6e, 0x74, 0x44, 0x65, 0x6e, 0x6f, 0x6d, 0x12, 0x36, 0x0a, 0x17,
+	0x73, 0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x5f, 0x72, 0x65, 0x77, 0x61, 0x72, 0x64, 0x73, 0x5f,
+	0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x15, 0x73,
+	0x74, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x73, 0x41, 0x63, 0x63,
+	0x6f, 0x75, 0x6e, 0x74, 0x12, 0x49, 0x0a, 0x11, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x5f, 0x72, 0x65,
+	0x77, 0x61, 0x72, 0x64, 0x5f, 0x70, 0x6f, 0x6f, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x42,
+	0x1d, 0xc8, 0xde, 0x1f, 0x00, 0xda, 0xde, 0x1f, 0x15, 0x63, 0x6f, 0x73, 0x6d, 0x6f, 0x73, 0x73,
+	0x64, 0x6b, 0x2e, 0x69, 0x6f, 0x2f, 0x6d, 0x61, 0x74, 0x68, 0x2e, 0x49, 0x6e, 0x74, 0x52, 0x0f,
+	0x74, 0x6f, 0x74, 0x61, 0x6c, 0x52, 0x65, 0x77, 0x61, 0x72, 0x64, 0x50, 0x6f, 0x6f, 0x6c, 0x12,
+	0x2a, 0x0a, 0x11, 0x68, 0x61, 0x6c, 0x66, 0x5f, 0x6c, 0x69, 0x66, 0x65, 0x5f, 0x73, 0x65, 0x63,
+	0x6f, 0x6e, 0x64, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0f, 0x68, 0x61, 0x6c, 0x66,
+	0x4c, 0x69, 0x66, 0x65, 0x53, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x73,
+	0x74, 0x61, 0x72, 0x74, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x03, 0x52,
+	0x09, 0x73, 0x74, 0x61, 0x72, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x3a, 0x1e, 0xe8, 0xa0, 0x1f, 0x01,
+	0x8a, 0xe7, 0xb0, 0x2a, 0x15, 0x6c, 0x63, 0x76, 0x2f, 0x78, 0x2f, 0x65, 0x6d, 0x69, 0x73, 0x73,
+	0x69, 0x6f, 0x6e, 0x2f, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0xa0, 0x01, 0x0a, 0x10, 0x63,
+	0x6f, 0x6d, 0x2e, 0x6c, 0x63, 0x76, 0x2e, 0x65, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x42,
+	0x0b, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x2e,
+	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6c, 0x61, 0x73, 0x74, 0x63,
+	0x6f, 0x69, 0x6e, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x2f, 0x6c, 0x63, 0x76, 0x2f, 0x61, 0x70,
+	0x69, 0x2f, 0x6c, 0x63, 0x76, 0x2f, 0x65, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0xa2, 0x02,
+	0x03, 0x4c, 0x45, 0x58, 0xaa, 0x02, 0x0c, 0x4c, 0x63, 0x76, 0x2e, 0x45, 0x6d, 0x69, 0x73, 0x73,
+	0x69, 0x6f, 0x6e, 0xca, 0x02, 0x0c, 0x4c, 0x63, 0x76, 0x5c, 0x45, 0x6d, 0x69, 0x73, 0x73, 0x69,
+	0x6f, 0x6e, 0xe2, 0x02, 0x18, 0x4c, 0x63, 0x76, 0x5c, 0x45, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f,
+	0x6e, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x0d,
+	0x4c, 0x63, 0x76, 0x3a, 0x3a, 0x45, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
