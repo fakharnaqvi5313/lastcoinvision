@@ -74,6 +74,46 @@ echo "==> Generating $NUM_VALIDATORS validator homes via 'lcvd multi-node'"
   --minimum-gas-prices "0${DENOM}" \
   > "$OUTPUT_DIR.multi-node.log" 2>&1
 
+echo "==> Assigning non-overlapping ports per node"
+# `multi-node` derives P2P ports by decrementing from a fixed default
+# regardless of --list-ports (which it uses for RPC instead), and hardcodes
+# the same pprof port (6060) for every node — both guaranteed collisions
+# when running N nodes on one machine. Force a clean, predictable,
+# non-overlapping scheme per node instead, and rewrite persistent_peers to
+# match the new P2P ports.
+declare -a NODE_IDS
+for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
+  NODE_IDS[$i]="$("$LCVD" tendermint show-node-id --home "$OUTPUT_DIR/validator$i" 2>/dev/null)"
+done
+
+PERSISTENT_PEERS=""
+for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
+  p2p_port=$((26656 + i * 10))
+  peer="${NODE_IDS[$i]}@localhost:${p2p_port}"
+  [ -z "$PERSISTENT_PEERS" ] && PERSISTENT_PEERS="$peer" || PERSISTENT_PEERS="$PERSISTENT_PEERS,$peer"
+done
+
+sed_inplace() { sed -i.bak "$1" "$2" && rm -f "$2.bak"; }
+
+for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
+  dir="$OUTPUT_DIR/validator$i"
+  p2p_port=$((26656 + i * 10))
+  rpc_port=$((26657 + i * 10))
+  pprof_port=$((6060 + i))
+  grpc_port=$((9090 + i * 10))
+  api_port=$((1317 + i * 10))
+
+  cfg="$dir/config/config.toml"
+  sed_inplace "s#^laddr = \"tcp://0.0.0.0:[0-9]*\"#laddr = \"tcp://0.0.0.0:${p2p_port}\"#" "$cfg"
+  sed_inplace "s#^laddr = \"tcp://127.0.0.1:[0-9]*\"#laddr = \"tcp://127.0.0.1:${rpc_port}\"#" "$cfg"
+  sed_inplace "s#^pprof_laddr = \"localhost:[0-9]*\"#pprof_laddr = \"localhost:${pprof_port}\"#" "$cfg"
+  sed_inplace "s#^persistent_peers = \".*\"#persistent_peers = \"${PERSISTENT_PEERS}\"#" "$cfg"
+
+  app="$dir/config/app.toml"
+  sed_inplace "s#^address = \"tcp://localhost:[0-9]*\"#address = \"tcp://localhost:${api_port}\"#" "$app"
+  sed_inplace "s#^address = \"localhost:[0-9]*\"#address = \"localhost:${grpc_port}\"#" "$app"
+done
+
 CANONICAL_GENESIS="$OUTPUT_DIR/validator0/config/genesis.json"
 
 echo "==> Patching $CANONICAL_GENESIS with the token allocation table"
