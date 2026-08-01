@@ -52,8 +52,11 @@ import (
 	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	emissionmodulev1 "github.com/lastcoinvision/lcv/api/lcv/emission/module"
+	feemarketmodulev1 "github.com/lastcoinvision/lcv/api/lcv/feemarket/module"
 	_ "github.com/lastcoinvision/lcv/x/emission/module" // import for side-effects
 	emissionmoduletypes "github.com/lastcoinvision/lcv/x/emission/types"
+	_ "github.com/lastcoinvision/lcv/x/feemarket/module" // import for side-effects
+	feemarketmoduletypes "github.com/lastcoinvision/lcv/x/feemarket/types"
 	"google.golang.org/protobuf/types/known/durationpb"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 )
@@ -93,6 +96,7 @@ var (
 		circuittypes.ModuleName,
 		// chain modules
 		emissionmoduletypes.ModuleName,
+		feemarketmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -122,6 +126,7 @@ var (
 		ibctransfertypes.ModuleName,
 		icatypes.ModuleName,
 		ibcfeetypes.ModuleName,
+		feemarketmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -141,6 +146,7 @@ var (
 		ibcfeetypes.ModuleName,
 		// chain modules
 		emissionmoduletypes.ModuleName,
+		feemarketmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	}
 
@@ -165,6 +171,10 @@ var (
 		// Minter/Burner permission: x/emission only ever transfers out of
 		// this pre-funded balance, never mints.
 		{Account: emissionmoduletypes.StakingRewardsAccountName},
+		// Transient holding account for the fee-market ante decorator: fees
+		// pass through here so the burned portion of the base fee can
+		// actually be burned before the remainder is forwarded on.
+		{Account: feemarketmoduletypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -246,8 +256,13 @@ var (
 				Config: appconfig.WrapAny(&paramsmodulev1.Module{}),
 			},
 			{
-				Name:   "tx",
-				Config: appconfig.WrapAny(&txconfigv1.Config{}),
+				Name: "tx",
+				// The default ante handler is replaced in app.go's New()
+				// with one that swaps in x/feemarket's fee decorator for
+				// the standard DeductFeeDecorator, so the EIP-1559-style
+				// dynamic base fee (with partial burn) is actually
+				// enforced and collected.
+				Config: appconfig.WrapAny(&txconfigv1.Config{SkipAnteHandler: true}),
 			},
 			{
 				Name:   genutiltypes.ModuleName,
@@ -303,6 +318,10 @@ var (
 			{
 				Name:   emissionmoduletypes.ModuleName,
 				Config: appconfig.WrapAny(&emissionmodulev1.Module{}),
+			},
+			{
+				Name:   feemarketmoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&feemarketmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

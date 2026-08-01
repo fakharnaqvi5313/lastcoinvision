@@ -1,0 +1,48 @@
+syntax = "proto3";
+package lcv.feemarket;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/feemarket/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "lcv/x/feemarket/Params";
+  option (gogoproto.equal) = true;
+
+  // fee_denom is the denom the dynamic base fee is charged in (ulcv).
+  string fee_denom = 1;
+
+  // base_fee is the current EIP-1559-style base fee, in fee_denom per unit
+  // of gas. Adjusted every block by EndBlock based on how full the previous
+  // block was relative to target_gas.
+  string base_fee = 2 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // min_base_fee is the floor base_fee can never adjust below.
+  string min_base_fee = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+
+  // target_gas is the per-block gas usage the fee market targets: above it
+  // base_fee rises, below it base_fee falls.
+  int64 target_gas = 4;
+
+  // max_base_fee_change_denominator bounds how much base_fee can move in a
+  // single block: at most a 1/max_base_fee_change_denominator fraction of
+  // the previous base_fee, in either direction (8 means max 12.5% per block,
+  // matching Ethereum's EIP-1559 default).
+  int64 max_base_fee_change_denominator = 5;
+
+  // burn_percentage is the fraction of the base fee portion of every
+  // transaction fee that is burned rather than credited to the fee
+  // collector for validator/community-pool distribution.
+  string burn_percentage = 6 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+}

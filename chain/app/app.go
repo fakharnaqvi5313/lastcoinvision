@@ -76,6 +76,8 @@ import (
 	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
 
 	emissionmodulekeeper "github.com/lastcoinvision/lcv/x/emission/keeper"
+	feemarketmodulekeeper "github.com/lastcoinvision/lcv/x/feemarket/keeper"
+
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	"github.com/lastcoinvision/lcv/docs"
@@ -145,7 +147,8 @@ type App struct {
 	ScopedICAHostKeeper       capabilitykeeper.ScopedKeeper
 	ScopedKeepers             map[string]capabilitykeeper.ScopedKeeper
 
-	EmissionKeeper emissionmodulekeeper.Keeper
+	EmissionKeeper  emissionmodulekeeper.Keeper
+	FeemarketKeeper feemarketmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// simulation manager
@@ -250,6 +253,7 @@ func New(
 		&app.GroupKeeper,
 		&app.CircuitBreakerKeeper,
 		&app.EmissionKeeper,
+		&app.FeemarketKeeper,
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
 		panic(err)
@@ -261,6 +265,21 @@ func New(
 
 	// build app
 	app.App = appBuilder.Build(db, traceStore, baseAppOptions...)
+
+	// Custom ante handler: the "tx" module config has SkipAnteHandler set,
+	// so we build our own here, identical to the SDK default except for
+	// the fee-market decorator (see app/ante.go).
+	anteHandler, err := NewAnteHandler(HandlerOptions{
+		AccountKeeper:   app.AccountKeeper,
+		BankKeeper:      app.BankKeeper,
+		FeemarketKeeper: app.FeemarketKeeper,
+		FeegrantKeeper:  app.FeeGrantKeeper,
+		SignModeHandler: app.txConfig.SignModeHandler(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	app.SetAnteHandler(anteHandler)
 
 	// register legacy modules
 	if err := app.registerIBCModules(appOpts); err != nil {
