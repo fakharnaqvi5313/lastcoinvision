@@ -272,7 +272,15 @@ func initTestnetFiles(
 			valPubKeys[i],
 			valTokens,
 			stakingtypes.NewDescription(nodeDirName, "", "", "", ""),
-			stakingtypes.NewCommissionRates(math.LegacyOneDec(), math.LegacyOneDec(), math.LegacyOneDec()),
+			// Ignite's scaffolded default was 100% commission (LegacyOneDec
+			// for rate/max_rate/max_change_rate), which makes every
+			// delegator's personal reward share zero — fine for nothing but
+			// deeply misleading for a devnet meant to demonstrate staking
+			// rewards. 10% is a plausible mainnet-ish default instead; a
+			// gentx's commission is baked into its signature, so this must
+			// be fixed here at generation time, not patched into genesis.json
+			// afterward (see DECISIONS.md).
+			stakingtypes.NewCommissionRates(math.LegacyNewDecWithPrec(10, 2), math.LegacyNewDecWithPrec(20, 2), math.LegacyNewDecWithPrec(1, 2)),
 			math.OneInt(),
 		)
 		if err != nil {

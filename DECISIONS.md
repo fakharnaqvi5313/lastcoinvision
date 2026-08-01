@@ -46,12 +46,19 @@ keeping module code inside `chain/`'s own tree. Ignite's tooling (`ignite scaffo
 under (a), for no real benefit at this stage (nothing needs `modules/` independently
 versioned or published yet).
 
+**Decision:** custom module Go code (`emission`, `feemarket`, `identity`, `registry`,
+`voting`, `taxrail`) lives at `chain/x/<name>/`, the standard Cosmos SDK location. The
+top-level `modules/<name>/SPEC.md` files required by the global rules still exist as
+specified — they just document code that physically lives under `chain/x/<name>/` — so
+`modules/` becomes a specs-and-docs directory rather than a code directory. Revisit if a
+module ever needs to be an independently published Go package.
+
 ## 2026-08-01 — Devnet validator self-bond funding sits outside the 10B allocation table
 
 `scripts/genesis/init-genesis.sh` uses `lcvd multi-node` to generate the N validator
 homes/keys/gentxs, and that command has a hardcoded (not flag-configurable) step that funds
 each validator's own account with 500 LCV so it has something to self-delegate and pay gas
-with (`chain/cmd/lcvd/cmd/testnet_multi_node.go:256`). `gengenesis` then adds the real
+with (`chain/cmd/lcvd/cmd/testnet_multi_node.go`). `gengenesis` then adds the real
 25/20/15/15/12/8/5% allocation table on top via separate accounts. The result: a 4-validator
 devnet's *actual* total supply is 10,000,002,000 LCV, not exactly 10,000,000,000 — a
 0.00002% overage that only exists because this is bootstrap tooling for a local test
@@ -64,12 +71,20 @@ their bonds from the public/ecosystem allocation through a real distribution pro
 `multi-node`'s devnet auto-funding — do not reuse this script unmodified for a production
 genesis.
 
-## 2026-08-01 — Custom module code lives at `chain/x/<name>`, not top-level `modules/<name>/`
+## 2026-08-01 — Fixed `lcvd multi-node`'s hardcoded 100% validator commission
 
-**Decision:** custom module Go code (`emission`, `feemarket`, `identity`, `registry`,
-`voting`, `taxrail`) lives at `chain/x/<name>/`, the standard Cosmos SDK location. The
-top-level `modules/<name>/SPEC.md` files required by the global rules still exist as
-specified — they just document code that physically lives under `chain/x/<name>/` — so
-`modules/` becomes a specs-and-docs directory rather than a code directory. Revisit if a
-module ever needs to be an independently published Go package.
+Ignite's scaffolded `chain/cmd/lcvd/cmd/testnet_multi_node.go` hardcodes every generated
+validator's commission (rate, max_rate, max_change_rate) to `math.LegacyOneDec()` — 100%.
+That's not a devnet-only quirk that can be patched out of the genesis file afterward:
+commission is a field of the signed `MsgCreateValidator` embedded in each gentx, so changing
+it post-hoc invalidates the transaction's signature. Discovered while verifying Phase A's
+"can delegate, undelegate, and see rewards accrue" acceptance criterion — with 100%
+commission, every delegator's *personal* reward share is exactly zero (all rewards go to
+the validator's commission pool), which made it initially look like x/emission wasn't
+working at all, when the actual emission → fee_collector → distribution pipeline was fine
+the whole time (confirmed via `query distribution validator-outstanding-rewards`).
+
+**Decision:** since this file is scaffolded into our own repo (not a vendored dependency),
+edit the hardcoded rate directly to 10%/20%/1% (rate/max_rate/max_change_rate) — a plausible
+mainnet-ish default — rather than working around it downstream.
 
