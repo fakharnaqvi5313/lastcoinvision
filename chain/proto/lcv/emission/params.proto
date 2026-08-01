@@ -1,0 +1,38 @@
+syntax = "proto3";
+package lcv.emission;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/emission/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "lcv/x/emission/Params";
+  option (gogoproto.equal) = true;
+
+  // mint_denom is the denom emitted as staking rewards (ulcv).
+  string mint_denom = 1;
+
+  // staking_rewards_account is the name of the module account that holds the
+  // genesis-funded staking rewards pool that emissions are transferred from.
+  string staking_rewards_account = 2;
+
+  // total_reward_pool is the asymptotic total amount (in mint_denom) that will
+  // be emitted over the lifetime of the decay curve as elapsed time goes to
+  // infinity. Emissions are transfers out of the pre-funded
+  // staking_rewards_account, never new minting, so this must not exceed the
+  // amount that account was funded with at genesis.
+  string total_reward_pool = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+
+  // half_life_seconds is the exponential decay half-life: the emission rate
+  // halves every half_life_seconds of elapsed chain time.
+  int64 half_life_seconds = 4;
+
+  // start_time is the unix time (seconds) the decay curve is anchored to,
+  // set once at genesis and not intended to change afterwards.
+  int64 start_time = 5;
+}

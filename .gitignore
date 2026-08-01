@@ -1,0 +1,40 @@
+# Go
+/chain/build/
+*.exe
+*.test
+*.out
+
+# Ignite
+**/vue/
+**/vuex/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Rust
+target/
+Cargo.lock
+!/contracts/**/Cargo.lock
+
+# Devnet / local chain data
+**/.lcvd/
+deploy/docker-compose/data/
+*.log
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Go coverage artifacts that can land at repo root during ad-hoc test runs
+*.profraw
+
+# OS
+.DS_Store
