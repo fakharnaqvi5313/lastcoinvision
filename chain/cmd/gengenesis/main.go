@@ -28,6 +28,8 @@ import (
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 
 	// Blank import for its init() side effect: sets the "lcv" bech32
@@ -80,6 +82,7 @@ func main() {
 		investorsAddr = flag.String("investors-addr", "", "investors vesting account address (required)")
 		publicAddr    = flag.String("public-addr", "", "public sale address (required)")
 		communityAddr = flag.String("community-addr", "", "community/airdrop address (required)")
+		devnetFastGov = flag.Bool("devnet-fast-gov", false, "shorten x/gov voting/deposit periods to seconds instead of days, for fast local governance testing (never use for a real testnet/mainnet genesis)")
 	)
 	flag.Parse()
 
@@ -100,6 +103,7 @@ func main() {
 	registry := codectypes.NewInterfaceRegistry()
 	authtypes.RegisterInterfaces(registry)
 	vestingtypes.RegisterInterfaces(registry)
+	govtypesv1.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(*genesisPath)
@@ -226,6 +230,10 @@ func main() {
 	appState[banktypes.ModuleName] = cdc.MustMarshalJSON(&bankGenState)
 	appState[minttypes.ModuleName] = zeroInflationMintGenesis(cdc)
 
+	if *devnetFastGov {
+		appState[govtypes.ModuleName] = fastGovGenesis(cdc, appState[govtypes.ModuleName])
+	}
+
 	newAppStateBz, err := json.Marshal(appState)
 	if err != nil {
 		exitf("marshalling app_state: %v", err)
@@ -283,6 +291,26 @@ func vestingPeriods(amount math.Int, cliffSeconds, totalSeconds int64, numPeriod
 		allocatedAmt = allocatedAmt.Add(amt)
 	}
 	return periods
+}
+
+// fastGovGenesis shortens x/gov's voting and deposit periods to seconds so
+// devnet operators can actually exercise a full proposal lifecycle in a
+// terminal session instead of waiting out the mainnet-realistic 48h/60-day
+// defaults. Never intended for a real testnet/mainnet genesis — see
+// DECISIONS.md.
+func fastGovGenesis(cdc codec.Codec, raw json.RawMessage) json.RawMessage {
+	var genState govtypesv1.GenesisState
+	cdc.MustUnmarshalJSON(raw, &genState)
+
+	votingPeriod := 30 * time.Second
+	expeditedVotingPeriod := 15 * time.Second
+	depositPeriod := 60 * time.Second
+
+	genState.Params.VotingPeriod = &votingPeriod
+	genState.Params.ExpeditedVotingPeriod = &expeditedVotingPeriod
+	genState.Params.MaxDepositPeriod = &depositPeriod
+
+	return cdc.MustMarshalJSON(&genState)
 }
 
 func zeroInflationMintGenesis(cdc codec.Codec) json.RawMessage {

@@ -124,7 +124,8 @@ echo "==> Patching $CANONICAL_GENESIS with the token allocation table"
   --team-addr "$TEAM_ADDR" \
   --investors-addr "$INVESTORS_ADDR" \
   --public-addr "$PUBLIC_ADDR" \
-  --community-addr "$COMMUNITY_ADDR"
+  --community-addr "$COMMUNITY_ADDR" \
+  --devnet-fast-gov
 
 echo "==> Distributing patched genesis to all $NUM_VALIDATORS validator homes"
 for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
