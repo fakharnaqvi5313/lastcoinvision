@@ -3,6 +3,13 @@ package app
 import sdk "github.com/cosmos/cosmos-sdk/types"
 
 func init() {
+	// Without this, sdk.DefaultBondDenom stays "stake", which leaks into
+	// every tool that references it instead of an explicit denom flag:
+	// `lcvd multi-node`'s validator self-bond amounts and default
+	// min-gas-prices, `lcvd testnet` defaults, etc. Overwriting it is the
+	// SDK-documented way to change that (see cosmos-sdk types/staking.go).
+	sdk.DefaultBondDenom = "ulcv"
+
 	// Set prefixes
 	accountPubKeyPrefix := AccountAddressPrefix + "pub"
 	validatorAddressPrefix := AccountAddressPrefix + "valoper"

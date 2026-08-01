@@ -46,6 +46,26 @@ keeping module code inside `chain/`'s own tree. Ignite's tooling (`ignite scaffo
 under (a), for no real benefit at this stage (nothing needs `modules/` independently
 versioned or published yet).
 
+## 2026-08-01 — Devnet validator self-bond funding sits outside the 10B allocation table
+
+`scripts/genesis/init-genesis.sh` uses `lcvd multi-node` to generate the N validator
+homes/keys/gentxs, and that command has a hardcoded (not flag-configurable) step that funds
+each validator's own account with 500 LCV so it has something to self-delegate and pay gas
+with (`chain/cmd/lcvd/cmd/testnet_multi_node.go:256`). `gengenesis` then adds the real
+25/20/15/15/12/8/5% allocation table on top via separate accounts. The result: a 4-validator
+devnet's *actual* total supply is 10,000,002,000 LCV, not exactly 10,000,000,000 — a
+0.00002% overage that only exists because this is bootstrap tooling for a local test
+network, not mainnet genesis construction.
+
+**Decision:** accept this for `lcv-devnet`/`lcv-testnet-1` purposes; it is not a violation of
+the "10B fixed supply" design intent, which is a mainnet property. A real mainnet launch's
+genesis (see the Phase I `RELEASE_CHECKLIST.md`, once written) must have validators self-fund
+their bonds from the public/ecosystem allocation through a real distribution process, not
+`multi-node`'s devnet auto-funding — do not reuse this script unmodified for a production
+genesis.
+
+## 2026-08-01 — Custom module code lives at `chain/x/<name>`, not top-level `modules/<name>/`
+
 **Decision:** custom module Go code (`emission`, `feemarket`, `identity`, `registry`,
 `voting`, `taxrail`) lives at `chain/x/<name>/`, the standard Cosmos SDK location. The
 top-level `modules/<name>/SPEC.md` files required by the global rules still exist as

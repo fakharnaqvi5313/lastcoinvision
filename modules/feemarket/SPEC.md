@@ -79,3 +79,8 @@ Per transaction:
 - The ante decorator requires single-denom fees; multi-denom fee payments (e.g. paying part
   in `ulcv` and part in an IBC-bridged token) are rejected outright rather than partially
   honored, favoring predictability over flexibility.
+- A validator's local `app.toml` `minimum-gas-prices` no longer does anything: the standard
+  ante decorator that reads it was removed along with `DeductFeeDecorator`. The network-wide
+  `base_fee` is the only floor, by design (a single unified fee market rather than
+  per-validator overrides) — but it means raising `minimum-gas-prices` is not a way for an
+  individual validator to opt out of low-fee spam the way it is on an unmodified SDK chain.
