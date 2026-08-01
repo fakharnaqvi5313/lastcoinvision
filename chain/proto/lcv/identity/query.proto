@@ -1,0 +1,88 @@
+syntax = "proto3";
+package lcv.identity;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "lcv/identity/params.proto";
+import "lcv/identity/identity.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/identity/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/identity/params";
+  }
+
+  // DIDByAddress returns the DID document controlled by an address, if any.
+  rpc DIDByAddress(QueryDIDByAddressRequest) returns (QueryDIDByAddressResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/identity/did/{address}";
+  }
+
+  // CredentialStatus returns a credential by its id.
+  rpc CredentialStatus(QueryCredentialStatusRequest) returns (QueryCredentialStatusResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/identity/credential/{id}";
+  }
+
+  // IssuerList returns every currently authorized issuer.
+  rpc IssuerList(QueryIssuerListRequest) returns (QueryIssuerListResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/identity/issuers";
+  }
+
+  // TierOf returns the computed account tier for an address.
+  rpc TierOf(QueryTierOfRequest) returns (QueryTierOfResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/identity/tier/{address}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+message QueryDIDByAddressRequest {
+  string address = 1;
+}
+
+message QueryDIDByAddressResponse {
+  DIDDocument did = 1;
+}
+
+message QueryCredentialStatusRequest {
+  string id = 1;
+}
+
+message QueryCredentialStatusResponse {
+  Credential credential = 1;
+}
+
+message QueryIssuerListRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryIssuerListResponse {
+  repeated Issuer issuers = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryTierOfRequest {
+  string address = 1;
+}
+
+message QueryTierOfResponse {
+  AccountTier tier = 1;
+  // role_metadata is populated only when tier is
+  // ACCOUNT_TIER_INSTITUTIONAL, copied from the group policy account's own
+  // metadata field.
+  string role_metadata = 2;
+}

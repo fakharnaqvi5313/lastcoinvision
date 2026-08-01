@@ -53,10 +53,13 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	emissionmodulev1 "github.com/lastcoinvision/lcv/api/lcv/emission/module"
 	feemarketmodulev1 "github.com/lastcoinvision/lcv/api/lcv/feemarket/module"
+	identitymodulev1 "github.com/lastcoinvision/lcv/api/lcv/identity/module"
 	_ "github.com/lastcoinvision/lcv/x/emission/module" // import for side-effects
 	emissionmoduletypes "github.com/lastcoinvision/lcv/x/emission/types"
 	_ "github.com/lastcoinvision/lcv/x/feemarket/module" // import for side-effects
 	feemarketmoduletypes "github.com/lastcoinvision/lcv/x/feemarket/types"
+	_ "github.com/lastcoinvision/lcv/x/identity/module" // import for side-effects
+	identitymoduletypes "github.com/lastcoinvision/lcv/x/identity/types"
 	"google.golang.org/protobuf/types/known/durationpb"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 )
@@ -97,6 +100,7 @@ var (
 		// chain modules
 		emissionmoduletypes.ModuleName,
 		feemarketmoduletypes.ModuleName,
+		identitymoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -127,6 +131,7 @@ var (
 		icatypes.ModuleName,
 		ibcfeetypes.ModuleName,
 		feemarketmoduletypes.ModuleName,
+		identitymoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -147,6 +152,7 @@ var (
 		// chain modules
 		emissionmoduletypes.ModuleName,
 		feemarketmoduletypes.ModuleName,
+		identitymoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	}
 
@@ -322,6 +328,10 @@ var (
 			{
 				Name:   feemarketmoduletypes.ModuleName,
 				Config: appconfig.WrapAny(&feemarketmodulev1.Module{}),
+			},
+			{
+				Name:   identitymoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&identitymodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},

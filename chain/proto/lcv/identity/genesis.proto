@@ -1,0 +1,21 @@
+syntax = "proto3";
+package lcv.identity;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "lcv/identity/params.proto";
+import "lcv/identity/identity.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/identity/types";
+
+// GenesisState defines the identity module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated DIDDocument dids = 2;
+  repeated Credential credentials = 3;
+  repeated Issuer issuers = 4;
+}

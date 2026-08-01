@@ -1,0 +1,99 @@
+syntax = "proto3";
+package lcv.identity;
+
+option go_package = "github.com/lastcoinvision/lcv/x/identity/types";
+
+// AccountTier is the credential-derived trust tier of an address, computed
+// on the fly by TierOf rather than stored directly (see keeper/tier.go):
+// institutional (a x/group group-policy account with non-empty metadata)
+// takes precedence over attested (holds an active credential of
+// params.attested_credential_type from an authorized issuer), which takes
+// precedence over the pseudonymous default.
+enum AccountTier {
+  ACCOUNT_TIER_UNSPECIFIED = 0;
+  ACCOUNT_TIER_PSEUDONYMOUS = 1;
+  ACCOUNT_TIER_ATTESTED = 2;
+  ACCOUNT_TIER_INSTITUTIONAL = 3;
+}
+
+// VerificationMethod is a W3C DID Core verification method: a cryptographic
+// key or other verification mechanism associated with a DID subject.
+message VerificationMethod {
+  // id is a fragment identifier, e.g. "did:lcv:lcv1.../keys-1".
+  string id = 1;
+  // type is the verification method type, e.g. "CosmosAccountAddress" for a
+  // reference to the subject's own bech32 account key.
+  string type = 2;
+  // controller is the DID or address that controls this verification method.
+  string controller = 3;
+  // public_key_multibase is the multibase-encoded public key, if applicable.
+  string public_key_multibase = 4;
+}
+
+// ServiceEndpoint is a W3C DID Core service entry describing a means of
+// communicating with the DID subject (e.g. a messaging or credential
+// exchange endpoint). No personal data belongs here — only URIs.
+message ServiceEndpoint {
+  string id = 1;
+  string type = 2;
+  string service_endpoint = 3;
+}
+
+// DIDDocument is the on-chain representation of a did:lcv DID document. It
+// deliberately holds no personal data: verification methods and service
+// endpoints are the only content, matching W3C DID Core's minimal
+// requirements.
+message DIDDocument {
+  // id is "did:lcv:<bech32 address>".
+  string id = 1;
+  // controller is the bech32 address controlling this DID (normally the
+  // subject itself).
+  string controller = 2;
+  repeated VerificationMethod verification_method = 3;
+  repeated ServiceEndpoint service = 4;
+  bool deactivated = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7;
+}
+
+// CredentialStatus is the on-chain lifecycle state of an anchored
+// credential. There is deliberately no "expired" state: expiry is a
+// property of the off-chain credential document itself, not tracked here.
+enum CredentialStatus {
+  CREDENTIAL_STATUS_UNSPECIFIED = 0;
+  CREDENTIAL_STATUS_ACTIVE = 1;
+  CREDENTIAL_STATUS_REVOKED = 2;
+}
+
+// Credential anchors an off-chain verifiable credential: a hash and status
+// only. The actual credential content (the holder's personal data) never
+// touches the chain.
+message Credential {
+  // id is a deterministic hex-encoded identifier derived from
+  // (issuer, subject, credential_type, credential_hash, issued_at).
+  string id = 1;
+  // subject is the bech32 address the credential was issued to.
+  string subject = 2;
+  // issuer is the bech32 address of the authorized issuer that issued this
+  // credential (must be in the issuer registry at issuance time; removing
+  // an issuer later does not retroactively invalidate credentials already
+  // issued — see modules/identity/SPEC.md).
+  string issuer = 3;
+  // credential_type is a free-form classifier, e.g. "kyc". Governance
+  // controls which credential_type value grants the "attested" tier via
+  // params.attested_credential_type.
+  string credential_type = 4;
+  // credential_hash is a hash (e.g. sha256) of the off-chain credential
+  // document. Never the document itself.
+  string credential_hash = 5;
+  CredentialStatus status = 6;
+  int64 issued_at = 7;
+  int64 revoked_at = 8;
+}
+
+// Issuer is a governance-authorized credential issuer.
+message Issuer {
+  string address = 1;
+  string name = 2;
+  int64 added_at = 3;
+}

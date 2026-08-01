@@ -78,6 +78,7 @@ import (
 	emissionmodulekeeper "github.com/lastcoinvision/lcv/x/emission/keeper"
 	feemarketmodulekeeper "github.com/lastcoinvision/lcv/x/feemarket/keeper"
 
+	identitymodulekeeper "github.com/lastcoinvision/lcv/x/identity/keeper"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	"github.com/lastcoinvision/lcv/docs"
@@ -149,6 +150,7 @@ type App struct {
 
 	EmissionKeeper  emissionmodulekeeper.Keeper
 	FeemarketKeeper feemarketmodulekeeper.Keeper
+	IdentityKeeper  identitymodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// simulation manager
@@ -254,6 +256,7 @@ func New(
 		&app.CircuitBreakerKeeper,
 		&app.EmissionKeeper,
 		&app.FeemarketKeeper,
+		&app.IdentityKeeper,
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
 		panic(err)

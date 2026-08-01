@@ -1,0 +1,173 @@
+syntax = "proto3";
+package lcv.identity;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "lcv/identity/params.proto";
+import "lcv/identity/identity.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/identity/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // CreateDID registers a did:lcv DID document for the creator's own
+  // address. An address may have at most one DID.
+  rpc CreateDID(MsgCreateDID) returns (MsgCreateDIDResponse);
+
+  // UpdateDID replaces the verification methods/services of the creator's
+  // own DID document. Fails if the DID is deactivated.
+  rpc UpdateDID(MsgUpdateDID) returns (MsgUpdateDIDResponse);
+
+  // DeactivateDID permanently deactivates the creator's own DID. A
+  // deactivated DID cannot be reactivated or updated.
+  rpc DeactivateDID(MsgDeactivateDID) returns (MsgDeactivateDIDResponse);
+
+  // AddIssuer authorizes an address to issue credentials. Authority-gated
+  // (governance), per the top-level spec's "authorized issuers (added via
+  // governance)".
+  rpc AddIssuer(MsgAddIssuer) returns (MsgAddIssuerResponse);
+
+  // RemoveIssuer revokes an address's authorization to issue new
+  // credentials. Does not retroactively invalidate credentials already
+  // issued — see modules/identity/SPEC.md.
+  rpc RemoveIssuer(MsgRemoveIssuer) returns (MsgRemoveIssuerResponse);
+
+  // IssueCredential anchors a credential hash for a subject. Only callable
+  // by an address currently in the issuer registry.
+  rpc IssueCredential(MsgIssueCredential) returns (MsgIssueCredentialResponse);
+
+  // RevokeCredential flips a credential's status to revoked. Only callable
+  // by the credential's original issuer or the module authority.
+  rpc RevokeCredential(MsgRevokeCredential) returns (MsgRevokeCredentialResponse);
+
+  // PresentCredential lets a holder prove control of a credential by
+  // submitting a proof over the credential id. Today this is a signature
+  // check (the tx signer must be the credential's subject); ZK-based
+  // selective disclosure is a documented future extension point — see
+  // ZKVerifier in x/identity/types/zk.go and modules/identity/SPEC.md.
+  rpc PresentCredential(MsgPresentCredential) returns (MsgPresentCredentialResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/identity/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+message MsgCreateDID {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/identity/MsgCreateDID";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  repeated VerificationMethod verification_method = 2;
+  repeated ServiceEndpoint service = 3;
+}
+
+message MsgCreateDIDResponse {
+  string id = 1;
+}
+
+message MsgUpdateDID {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/identity/MsgUpdateDID";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  repeated VerificationMethod verification_method = 2;
+  repeated ServiceEndpoint service = 3;
+}
+
+message MsgUpdateDIDResponse {}
+
+message MsgDeactivateDID {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/identity/MsgDeactivateDID";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgDeactivateDIDResponse {}
+
+message MsgAddIssuer {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/identity/MsgAddIssuer";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string issuer_address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 3;
+}
+
+message MsgAddIssuerResponse {}
+
+message MsgRemoveIssuer {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/identity/MsgRemoveIssuer";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string issuer_address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgRemoveIssuerResponse {}
+
+message MsgIssueCredential {
+  option (cosmos.msg.v1.signer) = "issuer";
+  option (amino.name) = "lcv/x/identity/MsgIssueCredential";
+
+  string issuer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string subject = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string credential_type = 3;
+  string credential_hash = 4;
+}
+
+message MsgIssueCredentialResponse {
+  string id = 1;
+}
+
+message MsgRevokeCredential {
+  option (cosmos.msg.v1.signer) = "issuer";
+  option (amino.name) = "lcv/x/identity/MsgRevokeCredential";
+
+  string issuer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string credential_id = 2;
+}
+
+message MsgRevokeCredentialResponse {}
+
+message MsgPresentCredential {
+  option (cosmos.msg.v1.signer) = "presenter";
+  option (amino.name) = "lcv/x/identity/MsgPresentCredential";
+
+  string presenter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string credential_id = 2;
+  // proof is currently unused beyond being non-empty (the tx signature
+  // already proves the presenter controls "presenter"); it exists as the
+  // extension point for a future ZK selective-disclosure proof — see
+  // x/identity/types/zk.go.
+  bytes proof = 3;
+}
+
+message MsgPresentCredentialResponse {
+  bool valid = 1;
+}
