@@ -71,6 +71,22 @@ Per transaction:
   rounding remainder can be silently lost — see `TestRequiredFeeAndBurnSplit` in
   `x/feemarket/keeper/abci_test.go`).
 
+## CLI note: hand-written `params` query command
+
+`lcvd query feemarket params` is served by a hand-written command
+([`chain/x/feemarket/client/cli/query.go`](../../chain/x/feemarket/client/cli/query.go))
+rather than the one AutoCLI would otherwise generate from `autocli.go`. AutoCLI's response
+encoder (`cosmossdk.io/client/v2/autocli`'s aminojson-based printer) only special-cases a
+couple of well-known proto message types (`google.protobuf.Duration`,
+`cosmos.base.v1beta1.DecCoin`) — it has no hook for gogoproto's
+`(gogoproto.customtype) = "cosmossdk.io/math.LegacyDec"` field annotation, so it printed
+`base_fee`/`min_base_fee`/`burn_percentage` as their raw internal scaled integers (e.g.
+`"500000000000000000"` instead of `"0.5"`, since `LegacyDec` scales by `1e18` internally).
+The hand-written command goes through `clientCtx.PrintProto` → `codec.ProtoCodec.MarshalJSON`
+instead, which does respect customtype and renders correctly. `AutoCLIOptions` sets
+`EnhanceCustomCommand: true` so any future query RPCs not covered by a custom command are
+still auto-generated as normal.
+
 ## Limitations
 
 - `target_gas` is a fixed governance parameter, not derived from the chain's actual

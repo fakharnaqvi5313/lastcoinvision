@@ -86,6 +86,14 @@ distribution). Each block:
 - `emitted(t1, t2) < total_reward_pool` for any finite `t2` (strict asymptote), enforced by
   construction of the closed-form formula, not by a runtime check.
 
+## CLI note: hand-written `params` query command
+
+`lcvd query emission params` is served by a hand-written command
+([`chain/x/emission/client/cli/query.go`](../../chain/x/emission/client/cli/query.go)) rather
+than the one AutoCLI would otherwise generate. See
+[`modules/feemarket/SPEC.md`](../feemarket/SPEC.md#cli-note-hand-written-params-query-command)
+for the full explanation — the same AutoCLI/gogoproto-customtype gap applies here.
+
 ## Limitations
 
 - The Taylor series in `expNeg` is capped at 300 terms; this comfortably covers any
