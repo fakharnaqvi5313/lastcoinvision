@@ -1,3 +1,5 @@
+<p align="center"><img src="brand/lcv-logo.png" alt="LastcoinVision logo" width="120"></p>
+
 # LastcoinVision (LCV)
 
 A government-grade, developer-first Layer-1 blockchain built on Cosmos SDK + CometBFT,
@@ -29,6 +31,7 @@ sale, investment offer, or legal/regulatory claim.**
 | [faucet/](faucet/) | Testnet faucet service |
 | [deploy/](deploy/) | docker-compose devnet, k8s manifests, CI |
 | [scripts/](scripts/) | Genesis generation, key management, upgrade tooling |
+| [brand/](brand/) | Logo and brand assets |
 
 See [DECISIONS.md](DECISIONS.md) for deviations from the original spec and why.
 
