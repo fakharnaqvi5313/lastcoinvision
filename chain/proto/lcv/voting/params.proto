@@ -1,0 +1,15 @@
+syntax = "proto3";
+package lcv.voting;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/voting/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "lcv/x/voting/Params";
+  option (gogoproto.equal) = true;
+
+  
+}

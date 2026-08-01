@@ -1,0 +1,21 @@
+syntax = "proto3";
+package lcv.registry;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "lcv/registry/params.proto";
+import "lcv/registry/registry.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/registry/types";
+
+// GenesisState defines the registry module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated Asset assets = 2;
+  repeated TransferRecord transfer_records = 3;
+  repeated JurisdictionAuthority jurisdiction_authorities = 4;
+}

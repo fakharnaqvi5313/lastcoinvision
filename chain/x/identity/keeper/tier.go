@@ -25,20 +25,33 @@ func (k Keeper) ComputeTier(ctx context.Context, address string) (tier types.Acc
 	}
 
 	params := k.GetParams(ctx)
+	if k.HasActiveCredentialOfType(ctx, address, params.AttestedCredentialType) {
+		return types.AccountTier_ACCOUNT_TIER_ATTESTED, ""
+	}
+
+	return types.AccountTier_ACCOUNT_TIER_PSEUDONYMOUS, ""
+}
+
+// HasActiveCredentialOfType reports whether address holds at least one
+// ACTIVE, unrevoked credential of credentialType issued by a *currently*
+// authorized issuer (an issuer removed after issuance no longer counts).
+// Used both by ComputeTier (for the module's own attested_credential_type)
+// and by other modules gating on an arbitrary credential type, e.g.
+// x/voting's per-election eligibility_credential_type.
+func (k Keeper) HasActiveCredentialOfType(ctx context.Context, address, credentialType string) bool {
 	for _, cred := range k.GetCredentialsBySubject(ctx, address) {
 		if cred.Status != types.CredentialStatus_CREDENTIAL_STATUS_ACTIVE {
 			continue
 		}
-		if cred.CredentialType != params.AttestedCredentialType {
+		if cred.CredentialType != credentialType {
 			continue
 		}
 		if !k.IsAuthorizedIssuer(ctx, cred.Issuer) {
 			continue
 		}
-		return types.AccountTier_ACCOUNT_TIER_ATTESTED, ""
+		return true
 	}
-
-	return types.AccountTier_ACCOUNT_TIER_PSEUDONYMOUS, ""
+	return false
 }
 
 func (k Keeper) groupPolicyInfo(ctx context.Context, address string) (*group.GroupPolicyInfo, bool) {

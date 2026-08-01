@@ -79,6 +79,11 @@ import (
 	feemarketmodulekeeper "github.com/lastcoinvision/lcv/x/feemarket/keeper"
 
 	identitymodulekeeper "github.com/lastcoinvision/lcv/x/identity/keeper"
+	registrymodulekeeper "github.com/lastcoinvision/lcv/x/registry/keeper"
+
+	taxrailmodulekeeper "github.com/lastcoinvision/lcv/x/taxrail/keeper"
+	votingmodulekeeper "github.com/lastcoinvision/lcv/x/voting/keeper"
+
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	"github.com/lastcoinvision/lcv/docs"
@@ -151,6 +156,9 @@ type App struct {
 	EmissionKeeper  emissionmodulekeeper.Keeper
 	FeemarketKeeper feemarketmodulekeeper.Keeper
 	IdentityKeeper  identitymodulekeeper.Keeper
+	RegistryKeeper  registrymodulekeeper.Keeper
+	VotingKeeper    votingmodulekeeper.Keeper
+	TaxrailKeeper   taxrailmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// simulation manager
@@ -257,6 +265,9 @@ func New(
 		&app.EmissionKeeper,
 		&app.FeemarketKeeper,
 		&app.IdentityKeeper,
+		&app.RegistryKeeper,
+		&app.VotingKeeper,
+		&app.TaxrailKeeper,
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
 		panic(err)

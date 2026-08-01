@@ -1,0 +1,22 @@
+syntax = "proto3";
+package lcv.voting;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "lcv/voting/params.proto";
+import "lcv/voting/voting.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/voting/types";
+
+// GenesisState defines the voting module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated Election elections = 2;
+  repeated VoteCommitment vote_commitments = 3;
+  repeated RegisteredVoter registered_voters = 4;
+  repeated ElectoralAuthority electoral_authorities = 5;
+}

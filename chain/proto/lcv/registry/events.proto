@@ -1,0 +1,26 @@
+syntax = "proto3";
+package lcv.registry;
+
+option go_package = "github.com/lastcoinvision/lcv/x/registry/types";
+
+message EventJurisdictionAuthoritySet {
+  string jurisdiction_code = 1;
+  string address = 2;
+}
+
+message EventAssetRegistered {
+  string id = 1;
+  string jurisdiction_code = 2;
+  string owner = 3;
+}
+
+message EventAssetTransferred {
+  string id = 1;
+  string from = 2;
+  string to = 3;
+}
+
+message EventAssetFrozen {
+  string id = 1;
+  string reason = 2;
+}

@@ -1,0 +1,62 @@
+syntax = "proto3";
+package lcv.voting;
+
+option go_package = "github.com/lastcoinvision/lcv/x/voting/types";
+
+// Election is the full public definition of one election: its eligibility
+// rule, its options, and its three sequential windows (registration,
+// voting, reveal). Every field here is public — there is no secret
+// configuration, matching the "everything verifiable" requirement.
+message Election {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  // eligibility_credential_type is the x/identity Credential.credential_type
+  // a voter must hold ACTIVE from a currently authorized issuer to
+  // register, e.g. "national_id".
+  string eligibility_credential_type = 4;
+  repeated string options = 5;
+  int64 registration_start = 6;
+  int64 registration_end = 7;
+  int64 voting_start = 8;
+  int64 voting_end = 9;
+  int64 reveal_end = 10;
+  string created_by = 11;
+  int64 created_at = 12;
+}
+
+// VoteCommitment is one voter's commit-reveal record for one election. See
+// modules/voting/SPEC.md's Limitations for why this is commit-reveal and
+// not a full zero-knowledge scheme.
+message VoteCommitment {
+  string election_id = 1;
+  // nullifier = sha256("did:lcv:<voter>" + election_id), preventing a
+  // second commitment from the same voter for the same election without
+  // ever storing the voter's address alongside their choice.
+  string nullifier = 2;
+  // commitment is sha256(choice + salt), submitted during the voting
+  // window; choice and salt are only revealed (and checked against this)
+  // during the reveal window.
+  string commitment = 3;
+  bool revealed = 4;
+  string revealed_choice = 5;
+  int64 committed_at = 6;
+  int64 revealed_at = 7;
+}
+
+// RegisteredVoter records that an address passed eligibility during an
+// election's registration window. Recorded by address (not just nullifier)
+// because eligibility re-verification at commit time needs to know who is
+// committing before the nullifier can be trusted.
+message RegisteredVoter {
+  string election_id = 1;
+  string voter = 2;
+  int64 registered_at = 3;
+}
+
+// ElectoralAuthority is a governance-authorized election creator.
+message ElectoralAuthority {
+  string address = 1;
+  string name = 2;
+  int64 added_at = 3;
+}

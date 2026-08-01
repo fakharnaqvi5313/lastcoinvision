@@ -1,0 +1,33 @@
+syntax = "proto3";
+package lcv.voting;
+
+option go_package = "github.com/lastcoinvision/lcv/x/voting/types";
+
+message EventElectoralAuthorityAdded {
+  string address = 1;
+  string name = 2;
+}
+
+message EventElectoralAuthorityRemoved {
+  string address = 1;
+}
+
+message EventElectionCreated {
+  string id = 1;
+  string title = 2;
+  string created_by = 3;
+}
+
+message EventVoterRegistered {
+  string election_id = 1;
+}
+
+message EventVoteCommitted {
+  string election_id = 1;
+  string nullifier = 2;
+}
+
+message EventVoteRevealed {
+  string election_id = 1;
+  string nullifier = 2;
+}

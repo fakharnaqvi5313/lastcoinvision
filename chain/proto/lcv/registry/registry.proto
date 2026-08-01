@@ -1,0 +1,55 @@
+syntax = "proto3";
+package lcv.registry;
+
+option go_package = "github.com/lastcoinvision/lcv/x/registry/types";
+
+// AssetStatus is the on-chain lifecycle state of a registered asset.
+enum AssetStatus {
+  ASSET_STATUS_UNSPECIFIED = 0;
+  ASSET_STATUS_ACTIVE = 1;
+  // ASSET_STATUS_FROZEN assets cannot be transferred until unfrozen by the
+  // jurisdiction authority. There is deliberately no MsgUnfreezeAsset in
+  // this phase — see modules/registry/SPEC.md's Limitations.
+  ASSET_STATUS_FROZEN = 2;
+}
+
+// Asset is a non-fungible registry record — a land parcel, vehicle, or
+// similar titled asset. Assets are records of ownership, not tradeable
+// tokens: there is no notion of splitting, fungibility, or market pricing
+// here, only registration, transfer, and freeze.
+message Asset {
+  // id is a deterministic hex identifier derived from
+  // (jurisdiction_code, asset_type, metadata_hash, registered_at).
+  string id = 1;
+  string asset_type = 2;
+  string jurisdiction_code = 3;
+  // metadata_hash is a hash of the off-chain asset record (deed, title
+  // document, etc.) — never the document itself.
+  string metadata_hash = 4;
+  // owner is the DID of the current owner, e.g. "did:lcv:lcv1...".
+  string owner = 5;
+  AssetStatus status = 6;
+  // freeze_reason is set when status is ASSET_STATUS_FROZEN, per the
+  // top-level spec's "with on-chain reason" requirement.
+  string freeze_reason = 7;
+  int64 registered_at = 8;
+  int64 updated_at = 9;
+}
+
+// TransferRecord is one entry in an asset's immutable transfer history.
+message TransferRecord {
+  string asset_id = 1;
+  string from = 2;
+  string to = 3;
+  int64 timestamp = 4;
+}
+
+// JurisdictionAuthority is the governance-designated account authorized to
+// register, transfer-of-record, and freeze assets for one jurisdiction
+// code. Necessary supporting infrastructure not literally named in the
+// top-level spec's message list — see DECISIONS.md.
+message JurisdictionAuthority {
+  string jurisdiction_code = 1;
+  string address = 2;
+  int64 set_at = 3;
+}

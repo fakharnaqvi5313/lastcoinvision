@@ -1,0 +1,32 @@
+syntax = "proto3";
+package lcv.taxrail;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/taxrail/types";
+
+// TaxRule is a governance-registered split-payment rate for one
+// jurisdiction code.
+message TaxRule {
+  string jurisdiction_code = 1;
+  // rate is the fraction of a taxed transfer routed to the collector
+  // treasury, e.g. "0.150000000000000000" for 15%.
+  string rate = 2 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+  int64 set_at = 3;
+}
+
+// JurisdictionLedger tracks how much of the taxrail module account's total
+// balance is attributable to one jurisdiction code, so collected tax stays
+// individually accountable even though every jurisdiction's tax physically
+// sits in the same module account. See modules/taxrail/SPEC.md.
+message JurisdictionLedger {
+  string jurisdiction_code = 1;
+  string denom = 2;
+  string balance = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}

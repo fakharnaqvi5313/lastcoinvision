@@ -1,0 +1,112 @@
+syntax = "proto3";
+package lcv.registry;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "lcv/registry/params.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/registry/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // SetJurisdictionAuthority designates the account authorized to register,
+  // transfer, and freeze assets for a jurisdiction code. Authority-gated
+  // (governance).
+  rpc SetJurisdictionAuthority(MsgSetJurisdictionAuthority) returns (MsgSetJurisdictionAuthorityResponse);
+
+  // RegisterAsset creates a new asset record. Only callable by the
+  // jurisdiction authority for jurisdiction_code.
+  rpc RegisterAsset(MsgRegisterAsset) returns (MsgRegisterAssetResponse);
+
+  // TransferAsset records a change of ownership. Callable by the asset's
+  // current owner or the jurisdiction authority; requires both the current
+  // and new owner to hold at least the "attested" identity tier.
+  rpc TransferAsset(MsgTransferAsset) returns (MsgTransferAssetResponse);
+
+  // FreezeAsset blocks further transfers of an asset. Only callable by the
+  // jurisdiction authority for the asset's jurisdiction_code; requires a
+  // human-readable on-chain reason.
+  rpc FreezeAsset(MsgFreezeAsset) returns (MsgFreezeAssetResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/registry/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+message MsgSetJurisdictionAuthority {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/registry/MsgSetJurisdictionAuthority";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string jurisdiction_code = 2;
+  string address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgSetJurisdictionAuthorityResponse {}
+
+message MsgRegisterAsset {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/registry/MsgRegisterAsset";
+
+  // creator must be the jurisdiction authority for jurisdiction_code.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string asset_type = 2;
+  string jurisdiction_code = 3;
+  string metadata_hash = 4;
+  // owner is the DID the asset is registered to, e.g. "did:lcv:lcv1...".
+  string owner = 5;
+}
+
+message MsgRegisterAssetResponse {
+  string id = 1;
+}
+
+message MsgTransferAsset {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/registry/MsgTransferAsset";
+
+  // creator must be the asset's current owner or its jurisdiction authority.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string asset_id = 2;
+  // new_owner is the DID the asset is being transferred to.
+  string new_owner = 3;
+}
+
+message MsgTransferAssetResponse {}
+
+message MsgFreezeAsset {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/registry/MsgFreezeAsset";
+
+  // creator must be the jurisdiction authority for the asset's jurisdiction.
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string asset_id = 2;
+  string reason = 3;
+}
+
+message MsgFreezeAssetResponse {}

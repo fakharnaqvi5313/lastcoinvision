@@ -1,0 +1,47 @@
+package registry
+
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/lastcoinvision/lcv/x/registry/keeper"
+	"github.com/lastcoinvision/lcv/x/registry/types"
+)
+
+// InitGenesis initializes the module's state from a provided genesis state.
+func InitGenesis(ctx sdk.Context, k keeper.Keeper, genState types.GenesisState) {
+	// this line is used by starport scaffolding # genesis/module/init
+	if err := k.SetParams(ctx, genState.Params); err != nil {
+		panic(err)
+	}
+	for _, auth := range genState.JurisdictionAuthorities {
+		if err := k.SetJurisdictionAuthority(ctx, *auth); err != nil {
+			panic(err)
+		}
+	}
+	for _, asset := range genState.Assets {
+		if err := k.SetAsset(ctx, *asset); err != nil {
+			panic(err)
+		}
+	}
+	// Replayed in original (chronological, per-asset) order so
+	// AppendTransferRecord's auto-incrementing sequence numbers land in the
+	// same relative order as when they were exported.
+	for _, record := range genState.TransferRecords {
+		if err := k.AppendTransferRecord(ctx, *record); err != nil {
+			panic(err)
+		}
+	}
+}
+
+// ExportGenesis returns the module's exported genesis.
+func ExportGenesis(ctx sdk.Context, k keeper.Keeper) *types.GenesisState {
+	genesis := types.DefaultGenesis()
+	genesis.Params = k.GetParams(ctx)
+	genesis.Assets = k.GetAllAssets(ctx)
+	genesis.TransferRecords = k.GetAllTransferRecords(ctx)
+	genesis.JurisdictionAuthorities = k.GetAllJurisdictionAuthorities(ctx)
+
+	// this line is used by starport scaffolding # genesis/module/export
+
+	return genesis
+}

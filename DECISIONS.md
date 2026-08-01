@@ -2,6 +2,67 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-01 — Feemarket's mandatory base fee needed a simulation-only genesis override to unblock Phase C's 100-block acceptance run
+
+Verifying Phase C's "simulations run clean for 100 blocks" acceptance criterion via
+`go test -bench ^BenchmarkSimulation ./app` (the full randomized-tx block simulator) failed
+immediately on ordinary `x/staking`/`x/feegrant` operations with `insufficient fee`, before
+any Phase C module code ran at all — `x/registry`, `x/voting`, and `x/taxrail` register zero
+`WeightedOperations` (matching every other custom module's existing pattern from Phases A/B),
+so they contribute no simulated transactions and were not the cause.
+
+The actual cause: `x/feemarket/ante.Decorator` (built in Phase A) enforces
+`base_fee * gasWanted` on every delivered tx, not just at CheckTx/mempool time — that's the
+point of an EIP-1559-style base fee that also gets burned. But the SDK's generic simulation
+operations (`x/staking`, `x/bank`, `x/gov`, `x/feegrant`, etc. — none of which know about our
+custom fee market) generate fees via `simulation.RandomFees`, which (a) has no way to target
+an arbitrary external minimum, and (b) explicitly returns a **zero-value fee, not an error**,
+for any freshly-created simulation account with no spendable balance yet — an assumption baked
+into nearly every module's operations, which is fine for the standard SDK's un-gated
+`DeliverTx`, but incompatible with our decorator's unconditional minimum.
+
+**Decision:** `x/feemarket/module/simulation.go`'s `GenerateGenesisState` (used only by the
+randomized block simulator, never by a real chain's genesis) now sets both `BaseFee` and
+`MinBaseFee` to exactly zero, which `Params.Validate()` already allows (it only requires
+`MinBaseFee` to be non-negative). This makes the ante decorator's required-fee check trivially
+satisfied for every simulated tx regardless of the submitting account's balance, without
+touching `types.DefaultParams()` — what a real chain's genesis actually uses — at all. This
+mirrors how the SDK's own staking/slashing/gov modules already generate non-default,
+simulation-only randomized params for this same harness. Confirmed clean with
+`BenchmarkSimulation` (100 blocks) and `TestAppSimulationAfterImport` (50 blocks, full
+import/export + invariant checks) afterward.
+
+## 2026-08-01 — `x/registry`/`x/voting`/`x/taxrail` authority registries follow two different shapes depending on cardinality
+
+`x/registry`'s jurisdiction authority (`MsgSetJurisdictionAuthority`) and `x/taxrail`'s tax
+rule (`MsgRegisterTaxRule`) are each a single governance-set record keyed by jurisdiction code
+— naturally 1:1, so each is a plain upsert rather than a list. `x/voting`'s electoral
+authority (`MsgAddElectoralAuthority`/`MsgRemoveElectoralAuthority`) is a flat authorized set
+instead, mirroring `x/identity`'s issuer-registry pattern, because electoral authorities
+aren't jurisdiction-scoped the way land/tax records are. Documented per-module in each
+`modules/<name>/SPEC.md` rather than unifying into one shared registry abstraction, since the
+two shapes have genuinely different semantics (exclusive-per-key vs. open membership set).
+
+## 2026-08-01 — `x/taxrail` is scoped to a single denom (`ulcv`)
+
+`JurisdictionLedger` was initially keyed by `(jurisdiction_code, denom)`, but
+`QueryJurisdictionBalanceRequest` only takes a `jurisdiction_code` — there was no way to
+specify which denom's balance to fetch, making a multi-denom ledger unqueryable as specified.
+Rather than extend the query surface for a use case outside the acceptance criteria, `x/taxrail`
+now hard-scopes to `types.DefaultDenom = "ulcv"` and rejects any other denom outright in both
+`MsgTaxedTransfer` and `MsgSpendCollectedTax` (`ErrUnsupportedDenom`) rather than silently
+mishandling it. See `modules/taxrail/SPEC.md` for the full writeup.
+
+## 2026-08-01 — `x/voting`'s commit-reveal scheme does not provide ballot secrecy against on-chain observers
+
+Per the top-level spec's own requirement to document this honestly: `MsgRevealVote` is a
+normal signed, broadcast transaction naming the voter's `choice` in the clear, so anyone
+watching block history can trivially link the revealing address to its vote — the commitment
+only hides the choice between commit and reveal, not after reveal, and this is not a
+zero-knowledge or anonymous-voting scheme. See `modules/voting/SPEC.md`'s "Limitations"
+section for the complete list of what this design does and does not guarantee (also covers
+coercion/vote-selling resistance, which is likewise not addressed).
+
 ## 2026-08-01 — Docker deferred for local devnet bring-up
 
 Docker Desktop is not installed on the dev machine (macOS 12.7.6, Intel). Docker Desktop

@@ -1,0 +1,58 @@
+syntax = "proto3";
+package lcv.taxrail;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "lcv/taxrail/params.proto";
+import "lcv/taxrail/taxrail.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/taxrail/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/taxrail/params";
+  }
+
+  // TaxRule returns the registered tax rule for a jurisdiction code.
+  rpc TaxRule(QueryTaxRuleRequest) returns (QueryTaxRuleResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/taxrail/rule/{jurisdiction_code}";
+  }
+
+  // JurisdictionBalance returns how much tax a jurisdiction has collected
+  // and not yet spent.
+  rpc JurisdictionBalance(QueryJurisdictionBalanceRequest) returns (QueryJurisdictionBalanceResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/taxrail/balance/{jurisdiction_code}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+message QueryTaxRuleRequest {
+  string jurisdiction_code = 1;
+}
+
+message QueryTaxRuleResponse {
+  TaxRule rule = 1;
+}
+
+message QueryJurisdictionBalanceRequest {
+  string jurisdiction_code = 1;
+}
+
+message QueryJurisdictionBalanceResponse {
+  JurisdictionLedger ledger = 1;
+}

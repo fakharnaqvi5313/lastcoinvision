@@ -1,0 +1,141 @@
+syntax = "proto3";
+package lcv.voting;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "lcv/voting/params.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/voting/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // AddElectoralAuthority authorizes an address to create elections.
+  // Authority-gated (governance).
+  rpc AddElectoralAuthority(MsgAddElectoralAuthority) returns (MsgAddElectoralAuthorityResponse);
+
+  // RemoveElectoralAuthority revokes an address's authorization to create
+  // new elections. Does not affect elections it already created.
+  rpc RemoveElectoralAuthority(MsgRemoveElectoralAuthority) returns (MsgRemoveElectoralAuthorityResponse);
+
+  // CreateElection defines a new election. Only callable by a currently
+  // authorized electoral authority.
+  rpc CreateElection(MsgCreateElection) returns (MsgCreateElectionResponse);
+
+  // RegisterToVote registers the caller as an eligible voter for an
+  // election, during its registration window, provided they hold an
+  // ACTIVE credential of the election's eligibility_credential_type from a
+  // currently authorized issuer.
+  rpc RegisterToVote(MsgRegisterToVote) returns (MsgRegisterToVoteResponse);
+
+  // CommitVote submits a voter's hidden vote commitment during the voting
+  // window. One commitment per voter per election, enforced by nullifier.
+  rpc CommitVote(MsgCommitVote) returns (MsgCommitVoteResponse);
+
+  // RevealVote reveals a previously committed vote during the reveal
+  // window; it's only counted in ElectionResults if the revealed
+  // (choice, salt) hashes to the stored commitment.
+  rpc RevealVote(MsgRevealVote) returns (MsgRevealVoteResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/voting/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
+
+message MsgAddElectoralAuthority {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/voting/MsgAddElectoralAuthority";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string name = 3;
+}
+
+message MsgAddElectoralAuthorityResponse {}
+
+message MsgRemoveElectoralAuthority {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "lcv/x/voting/MsgRemoveElectoralAuthority";
+
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message MsgRemoveElectoralAuthorityResponse {}
+
+message MsgCreateElection {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "lcv/x/voting/MsgCreateElection";
+
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string title = 2;
+  string description = 3;
+  string eligibility_credential_type = 4;
+  repeated string options = 5;
+  int64 registration_start = 6;
+  int64 registration_end = 7;
+  int64 voting_start = 8;
+  int64 voting_end = 9;
+  int64 reveal_end = 10;
+}
+
+message MsgCreateElectionResponse {
+  string id = 1;
+}
+
+message MsgRegisterToVote {
+  option (cosmos.msg.v1.signer) = "voter";
+  option (amino.name) = "lcv/x/voting/MsgRegisterToVote";
+
+  string voter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string election_id = 2;
+}
+
+message MsgRegisterToVoteResponse {}
+
+message MsgCommitVote {
+  option (cosmos.msg.v1.signer) = "voter";
+  option (amino.name) = "lcv/x/voting/MsgCommitVote";
+
+  string voter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string election_id = 2;
+  string commitment = 3;
+}
+
+message MsgCommitVoteResponse {}
+
+message MsgRevealVote {
+  option (cosmos.msg.v1.signer) = "voter";
+  option (amino.name) = "lcv/x/voting/MsgRevealVote";
+
+  string voter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string election_id = 2;
+  string choice = 3;
+  string salt = 4;
+}
+
+message MsgRevealVoteResponse {}

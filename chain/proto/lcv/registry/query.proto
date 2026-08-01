@@ -1,0 +1,73 @@
+syntax = "proto3";
+package lcv.registry;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "lcv/registry/params.proto";
+import "lcv/registry/registry.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/registry/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/registry/params";
+  }
+
+  // AssetByID returns a single asset by id.
+  rpc AssetByID(QueryAssetByIDRequest) returns (QueryAssetByIDResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/registry/asset/{id}";
+  }
+
+  // TransferHistory returns every recorded ownership transfer of an asset,
+  // in chronological order, satisfying the top-level spec's "full
+  // transfer-history query" requirement.
+  rpc TransferHistory(QueryTransferHistoryRequest) returns (QueryTransferHistoryResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/registry/asset/{asset_id}/history";
+  }
+
+  // JurisdictionAuthorityOf returns the account authorized to act on behalf
+  // of a jurisdiction code, if any has been set.
+  rpc JurisdictionAuthorityOf(QueryJurisdictionAuthorityOfRequest) returns (QueryJurisdictionAuthorityOfResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/registry/jurisdiction/{jurisdiction_code}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+message QueryAssetByIDRequest {
+  string id = 1;
+}
+
+message QueryAssetByIDResponse {
+  Asset asset = 1;
+}
+
+message QueryTransferHistoryRequest {
+  string asset_id = 1;
+}
+
+message QueryTransferHistoryResponse {
+  repeated TransferRecord records = 1;
+}
+
+message QueryJurisdictionAuthorityOfRequest {
+  string jurisdiction_code = 1;
+}
+
+message QueryJurisdictionAuthorityOfResponse {
+  JurisdictionAuthority authority = 1;
+}

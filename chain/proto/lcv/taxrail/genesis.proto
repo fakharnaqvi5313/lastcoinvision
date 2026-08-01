@@ -1,0 +1,20 @@
+syntax = "proto3";
+package lcv.taxrail;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "lcv/taxrail/params.proto";
+import "lcv/taxrail/taxrail.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/taxrail/types";
+
+// GenesisState defines the taxrail module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated TaxRule tax_rules = 2;
+  repeated JurisdictionLedger jurisdiction_ledgers = 3;
+}

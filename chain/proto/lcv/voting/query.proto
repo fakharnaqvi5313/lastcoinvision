@@ -1,0 +1,79 @@
+syntax = "proto3";
+package lcv.voting;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "lcv/voting/params.proto";
+import "lcv/voting/voting.proto";
+
+option go_package = "github.com/lastcoinvision/lcv/x/voting/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/voting/params";
+  }
+
+  // Election returns an election's full public definition.
+  rpc Election(QueryElectionRequest) returns (QueryElectionResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/voting/election/{id}";
+  }
+
+  // ElectionResults recomputes the tally live from every revealed vote
+  // commitment on chain — there is no separately stored "official" result,
+  // per the top-level spec's "anyone can recompute the tally from on-chain
+  // data" requirement.
+  rpc ElectionResults(QueryElectionResultsRequest) returns (QueryElectionResultsResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/voting/election/{election_id}/results";
+  }
+
+  // ElectoralAuthorityList returns every currently authorized electoral
+  // authority.
+  rpc ElectoralAuthorityList(QueryElectoralAuthorityListRequest) returns (QueryElectoralAuthorityListResponse) {
+    option (google.api.http).get = "/lastcoinvision/lcv/voting/electoral-authorities";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+message QueryElectionRequest {
+  string id = 1;
+}
+
+message QueryElectionResponse {
+  Election election = 1;
+}
+
+message OptionTally {
+  string option = 1;
+  int64 count = 2;
+}
+
+message QueryElectionResultsRequest {
+  string election_id = 1;
+}
+
+message QueryElectionResultsResponse {
+  repeated OptionTally tallies = 1;
+  int64 total_revealed = 2;
+  int64 total_registered = 3;
+}
+
+message QueryElectoralAuthorityListRequest {}
+
+message QueryElectoralAuthorityListResponse {
+  repeated ElectoralAuthority authorities = 1;
+}

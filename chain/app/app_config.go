@@ -54,12 +54,21 @@ import (
 	emissionmodulev1 "github.com/lastcoinvision/lcv/api/lcv/emission/module"
 	feemarketmodulev1 "github.com/lastcoinvision/lcv/api/lcv/feemarket/module"
 	identitymodulev1 "github.com/lastcoinvision/lcv/api/lcv/identity/module"
+	registrymodulev1 "github.com/lastcoinvision/lcv/api/lcv/registry/module"
+	taxrailmodulev1 "github.com/lastcoinvision/lcv/api/lcv/taxrail/module"
+	votingmodulev1 "github.com/lastcoinvision/lcv/api/lcv/voting/module"
 	_ "github.com/lastcoinvision/lcv/x/emission/module" // import for side-effects
 	emissionmoduletypes "github.com/lastcoinvision/lcv/x/emission/types"
 	_ "github.com/lastcoinvision/lcv/x/feemarket/module" // import for side-effects
 	feemarketmoduletypes "github.com/lastcoinvision/lcv/x/feemarket/types"
 	_ "github.com/lastcoinvision/lcv/x/identity/module" // import for side-effects
 	identitymoduletypes "github.com/lastcoinvision/lcv/x/identity/types"
+	_ "github.com/lastcoinvision/lcv/x/registry/module" // import for side-effects
+	registrymoduletypes "github.com/lastcoinvision/lcv/x/registry/types"
+	_ "github.com/lastcoinvision/lcv/x/taxrail/module" // import for side-effects
+	taxrailmoduletypes "github.com/lastcoinvision/lcv/x/taxrail/types"
+	_ "github.com/lastcoinvision/lcv/x/voting/module" // import for side-effects
+	votingmoduletypes "github.com/lastcoinvision/lcv/x/voting/types"
 	"google.golang.org/protobuf/types/known/durationpb"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 )
@@ -101,6 +110,9 @@ var (
 		emissionmoduletypes.ModuleName,
 		feemarketmoduletypes.ModuleName,
 		identitymoduletypes.ModuleName,
+		registrymoduletypes.ModuleName,
+		votingmoduletypes.ModuleName,
+		taxrailmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 
@@ -132,6 +144,9 @@ var (
 		ibcfeetypes.ModuleName,
 		feemarketmoduletypes.ModuleName,
 		identitymoduletypes.ModuleName,
+		registrymoduletypes.ModuleName,
+		votingmoduletypes.ModuleName,
+		taxrailmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	}
 
@@ -153,6 +168,9 @@ var (
 		emissionmoduletypes.ModuleName,
 		feemarketmoduletypes.ModuleName,
 		identitymoduletypes.ModuleName,
+		registrymoduletypes.ModuleName,
+		votingmoduletypes.ModuleName,
+		taxrailmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	}
 
@@ -181,6 +199,12 @@ var (
 		// pass through here so the burned portion of the base fee can
 		// actually be burned before the remainder is forwarded on.
 		{Account: feemarketmoduletypes.ModuleName, Permissions: []string{authtypes.Burner}},
+		// Pooled collector treasury for MsgTaxedTransfer's tax share, tracked
+		// per-jurisdiction via JurisdictionLedger. No Minter/Burner
+		// permission: x/taxrail only ever moves already-existing coins in
+		// (from senders) and out (via governance-gated MsgSpendCollectedTax),
+		// never mints or burns.
+		{Account: taxrailmoduletypes.ModuleName},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 
@@ -192,6 +216,12 @@ var (
 		stakingtypes.BondedPoolName,
 		stakingtypes.NotBondedPoolName,
 		nft.ModuleName,
+		// Collected tax should only ever arrive via MsgTaxedTransfer's
+		// split logic (which credits the matching JurisdictionLedger in the
+		// same handler call), never a generic MsgSend that would leave the
+		// ledger under-counting the module account's real balance and trip
+		// LedgerMatchesModuleBalanceInvariant.
+		taxrailmoduletypes.ModuleName,
 		// We allow the following module accounts to receive funds:
 		// govtypes.ModuleName
 	}
@@ -332,6 +362,18 @@ var (
 			{
 				Name:   identitymoduletypes.ModuleName,
 				Config: appconfig.WrapAny(&identitymodulev1.Module{}),
+			},
+			{
+				Name:   registrymoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&registrymodulev1.Module{}),
+			},
+			{
+				Name:   votingmoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&votingmodulev1.Module{}),
+			},
+			{
+				Name:   taxrailmoduletypes.ModuleName,
+				Config: appconfig.WrapAny(&taxrailmodulev1.Module{}),
 			},
 			// this line is used by starport scaffolding # stargate/app/moduleConfig
 		},
