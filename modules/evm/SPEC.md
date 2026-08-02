@@ -188,7 +188,22 @@ via `eth_getCode`.
 - **The experimental EVM mempool (`evmmempool.NewExperimentalEVMMempool`) may stall block
   production after a rejected broadcast.** Observed once live: after a transaction was
   rejected for a nonce mismatch, the devnet's block height stopped advancing entirely (while
-  the process kept running and consuming CPU) until restarted with fresh state. Not yet
-  root-caused or reliably reproduced on demand; flagged as a follow-up rather than fixed here.
-  A fresh devnet instance was unaffected and is what the Hardhat/MetaMask verifications above
-  were run against.
+  the process kept running and consuming CPU) until restarted with fresh state. A fresh devnet
+  instance was unaffected and is what the Hardhat/MetaMask verifications above were run
+  against. **Follow-up reproduction attempt (same day):** deliberately triggered both nonce
+  error variants cast can produce — "tx nonce is higher than account nonce" (future nonce) and
+  "tx nonce is lower than account nonce" (replayed/stale nonce, the exact error text from the
+  original incident) — against a fresh devnet, individually and combined with a large
+  (~12KB, contract-deployment-sized) payload submitted multiple times. Blocks kept advancing
+  normally after every one of these; the stall did not reproduce. The original incident
+  involved several successful transactions from a *retrying* Hardhat deployment script (which
+  resubmits after a client-side timeout, potentially with a stale nonce read — see the
+  `eth_getTransactionCount` "latest" vs "pending" discrepancy noted below) before the
+  rejected broadcast, so the trigger is likely some multi-step interaction not captured by a
+  single deliberate rejection — not yet reliably reproducible on demand.
+- **`eth_getTransactionCount(addr, "latest")` can return a stale value.** Observed once on the
+  same broken instance as the mempool stall above: `"latest"` returned a lower count than
+  `"pending"` even though the discrepancy was checked before the stall was confirmed. Also not
+  reproduced on demand in the follow-up session (a fresh devnet's `"latest"` and `"pending"`
+  always agreed after every scenario tried above) — plausibly a symptom of the same underlying,
+  not-yet-understood condition rather than an independent bug.

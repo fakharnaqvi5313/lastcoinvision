@@ -103,12 +103,30 @@ whatever time had actually elapsed. Fixed directly (small, well-contained, and t
 `last_emission_time` to `GenesisState` (`proto/lcv/emission/genesis.proto`), `ExportGenesis`
 now populates it from `k.GetLastEmissionTime`, and `InitGenesis` uses it when non-zero
 (falling back to `params.StartTime` only for a genuinely fresh genesis) — see
-`x/emission/module/genesis.go` and its new round-trip tests. `TestAppImportExport` still fails
-after this fix, on a *different*, unrelated store mismatch (looks like per-account indexed
-state, possibly from the EVM/wasm stack's own simulated operations) — flagged separately as a
-follow-up rather than chased further here, since it's a distinct issue from the one reported
-and this test is opt-in (`-Enabled=true -tags=test`), not part of Phase D's own acceptance
-criteria.
+`x/emission/module/genesis.go` and its new round-trip tests.
+
+**`TestAppImportExport` still fails after this fix**, on a different, unrelated mismatch —
+root-caused (but not fixed; it lives entirely inside the vendored `cosmos/evm` dependency, not
+this repo's own code) as follows: the diff is in the `evm` store (`x/vm`), on keys of the form
+`KeyPrefixStorage (0x02) + <20-byte address> + <32-byte storage slot>`, with sequential slot
+numbers (1, 2, 3, ... 15) under one address. The pattern is consistent: the key is *missing
+entirely* from the original app's store but present with an *explicit zero value* after
+export/import. Ruled out: `x/vm` and `x/erc20` both register zero `WeightedOperations` (no
+`MsgEthereumTx`/ERC20-conversion messages are ever simulated), so this isn't real contract
+storage from a simulated EVM call; `evmmonoante.NewGasWantedDecorator` (run for every tx,
+Cosmos or EVM) only touches the feemarket keeper's gas bookkeeping, not `x/vm` storage. That
+leaves cosmos/evm's own `x/vm.ExportGenesis`/`Keeper.GetAccountStorage`, which exports
+*every* key found via a raw prefix-store iteration with no zero-value filtering
+(`SetState` itself never calls `DeleteState` for a zero write either) — some other internal
+code path (most likely an ante-level or precompile-adjacent StateDB touch, not yet pinned down
+without instrumenting the vendored dependency itself) appears to mark a slot dirty long enough
+for it to reach a zero-valued `SetState` call during import's `InitGenesis`, without the
+original run ever having durably committed that same write. Not chased further: it's entirely
+upstream (cosmos/evm) behavior, not something in this repo's own modules; the test is opt-in
+(`-Enabled=true -tags=test`), not part of any acceptance criteria; and it doesn't reproduce in
+the primary 100-block `BenchmarkSimulation` or in real devnet usage (JSON-RPC, MetaMask
+transfers, and CosmWasm all verified working in Phase D). Worth reporting upstream to
+cosmos/evm if genesis export/import fidelity becomes a hard requirement later.
 
 **Net result, verified against a live local node (not just unit tests):** `eth_chainId`,
 `net_version`, `eth_gasPrice` all return correct values; a real signed EVM transfer (`cast
