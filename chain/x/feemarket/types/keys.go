@@ -3,8 +3,12 @@ package types
 import "cosmossdk.io/math"
 
 const (
-	// ModuleName defines the module name
-	ModuleName = "feemarket"
+	// ModuleName defines the module name. Named "lcvfeemarket", not just
+	// "feemarket", because cosmos/evm ships its own module also named
+	// "feemarket" (its EVM-side EIP-1559 base fee market) — module names
+	// must be unique per app (they key the module manager, store, and
+	// genesis maps), and that name is upstream/fixed. See DECISIONS.md.
+	ModuleName = "lcvfeemarket"
 
 	// StoreKey defines the primary module store key
 	StoreKey = ModuleName

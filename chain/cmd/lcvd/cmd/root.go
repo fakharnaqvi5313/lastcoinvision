@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/cosmos/evm/crypto/hd"
+
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 
 	"github.com/lastcoinvision/lcv/app"
@@ -55,7 +57,13 @@ func NewRootCmd() *cobra.Command {
 		WithInput(os.Stdin).
 		WithAccountRetriever(types.AccountRetriever{}).
 		WithHomeDir(app.DefaultNodeHome).
-		WithViper(app.Name) // env variable prefix
+		WithViper(app.Name). // env variable prefix
+		// eth_secp256k1 (Keccak256-derived addresses) instead of the SDK's
+		// default secp256k1 (RIPEMD160(SHA256(...))-derived), so `lcvd keys
+		// add` produces a key whose bech32 and 0x-hex encodings are the
+		// SAME address MetaMask would derive from the same private key —
+		// see modules/evm/SPEC.md.
+		WithKeyringOptions(hd.EthSecp256k1Option())
 
 	rootCmd := &cobra.Command{
 		Use:           app.Name + "d",

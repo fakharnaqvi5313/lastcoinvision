@@ -24,6 +24,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	cosmosevmserver "github.com/cosmos/evm/server"
+	srvflags "github.com/cosmos/evm/server/flags"
+
 	"github.com/lastcoinvision/lcv/app"
 )
 
@@ -38,11 +41,19 @@ func initRootCmd(
 		NewTestnetMultiNodeCmd(basicManager, banktypes.GenesisBalancesIterator{}),
 		debug.Cmd(),
 		confixcmd.ConfigCommand(),
-		pruning.Cmd(newApp, app.DefaultNodeHome),
-		snapshot.Cmd(newApp),
+		pruning.Cmd(newAppForServerTypes, app.DefaultNodeHome),
+		snapshot.Cmd(newAppForServerTypes),
 	)
 
-	server.AddCommands(rootCmd, app.DefaultNodeHome, newApp, appExport, addModuleInitFlags)
+	// cosmosevmserver.AddCommands wraps the standard server.AddCommands
+	// with EVM-aware `start` flags/wiring (JSON-RPC server startup, the
+	// EVM chain id flag, etc.) — see modules/evm/SPEC.md.
+	cosmosevmserver.AddCommands(
+		rootCmd,
+		cosmosevmserver.NewDefaultStartOptions(newApp, app.DefaultNodeHome),
+		appExport,
+		addModuleInitFlags,
+	)
 
 	// add keybase, auxiliary RPC, query, genesis, and tx child commands
 	rootCmd.AddCommand(
@@ -52,6 +63,10 @@ func initRootCmd(
 		txCommand(),
 		keys.Commands(),
 	)
+
+	if _, err := srvflags.AddTxFlags(rootCmd); err != nil {
+		panic(err)
+	}
 }
 
 func addModuleInitFlags(startCmd *cobra.Command) {
@@ -118,16 +133,19 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
-// newApp creates the application
+// newApp creates the application, returning cosmos/evm's own Application
+// interface (a superset of servertypes.Application — adds
+// RegisterPendingTxListener/GetMempool/SetClientCtx, which app.App now
+// implements) required by cosmosevmserver.AddCommands' start command.
 func newApp(
 	logger log.Logger,
 	db dbm.DB,
 	traceStore io.Writer,
 	appOpts servertypes.AppOptions,
-) servertypes.Application {
+) cosmosevmserver.Application {
 	baseappOptions := server.DefaultBaseappOptions(appOpts)
 
-	app, err := app.New(
+	lcvApp, err := app.New(
 		logger, db, traceStore, true,
 		appOpts,
 		baseappOptions...,
@@ -135,7 +153,20 @@ func newApp(
 	if err != nil {
 		panic(err)
 	}
-	return app
+	return lcvApp
+}
+
+// newAppForServerTypes adapts newApp for the standard SDK commands
+// (pruning, snapshot) that were never updated upstream to know about
+// cosmos/evm's wider Application interface, even though every concrete
+// value returned here already satisfies both.
+func newAppForServerTypes(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	appOpts servertypes.AppOptions,
+) servertypes.Application {
+	return newApp(logger, db, traceStore, appOpts)
 }
 
 // appExport creates a new app (optionally at a given height) and exports state.

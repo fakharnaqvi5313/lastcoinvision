@@ -3,6 +3,11 @@ package cmd
 import (
 	cmtcfg "github.com/cometbft/cometbft/config"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
+
+	evmconfig "github.com/cosmos/evm/config"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+
+	"github.com/lastcoinvision/lcv/app"
 )
 
 // initCometBFTConfig helps to override default CometBFT Config values.
@@ -18,45 +23,30 @@ func initCometBFTConfig() *cmtcfg.Config {
 }
 
 // initAppConfig helps to override default appConfig template and configs.
-// return "", nil if no custom configuration is required for the application.
+//
+// Combines the standard SDK app.toml template with cosmos/evm's own [evm],
+// [json-rpc], and [tls] sections (EVMAppTemplate) so a fresh `lcvd init`
+// already has JSON-RPC enabled by default at the chain's configured
+// EVMChainID — see modules/evm/SPEC.md.
 func initAppConfig() (string, interface{}) {
-	// The following code snippet is just for reference.
-	type CustomAppConfig struct {
-		serverconfig.Config `mapstructure:",squash"`
-	}
-
-	// Optionally allow the chain developer to overwrite the SDK's default
-	// server config.
 	srvCfg := serverconfig.DefaultConfig()
-	// The SDK's default minimum gas price is set to "" (empty value) inside
-	// app.toml. If left empty by validators, the node will halt on startup.
-	// However, the chain developer can set a default app.toml value for their
-	// validators here.
-	//
-	// In summary:
-	// - if you leave srvCfg.MinGasPrices = "", all validators MUST tweak their
-	//   own app.toml config,
-	// - if you set srvCfg.MinGasPrices non-empty, validators CAN tweak their
-	//   own app.toml to override, or use this default value.
-	//
-	// In tests, we set the min gas prices to 0.
-	// srvCfg.MinGasPrices = "0stake"
-	// srvCfg.BaseConfig.IAVLDisableFastNode = true // disable fastnode by default
+	// The SDK's default minimum gas price is "" (empty), which halts a
+	// validator on startup if left unset. This chain's real fee floor is
+	// enforced by x/feemarket's own ante decorator regardless, so 0 here
+	// just satisfies the SDK's own startup check.
+	srvCfg.MinGasPrices = "0" + app.EVMBaseDenom
 
-	customAppConfig := CustomAppConfig{
-		Config: *srvCfg,
+	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
+	evmCfg.EVMChainID = app.EVMChainID
+
+	customAppConfig := evmconfig.EVMAppConfig{
+		Config:  *srvCfg,
+		EVM:     *evmCfg,
+		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 
-	customAppTemplate := serverconfig.DefaultConfigTemplate
-	// Edit the default template file
-	//
-	// customAppTemplate := serverconfig.DefaultConfigTemplate + `
-	// [wasm]
-	// # This is the maximum sdk gas (wasm and storage) that we allow for any x/wasm "smart" queries
-	// query_gas_limit = 300000
-	// # This is the number of wasm vm instances we keep cached in memory for speed-up
-	// # Warning: this is currently unstable and may lead to crashes, best to keep for 0 unless testing locally
-	// lru_size = 0`
+	customAppTemplate := serverconfig.DefaultConfigTemplate + cosmosevmserverconfig.DefaultEVMConfigTemplate
 
 	return customAppTemplate, customAppConfig
 }

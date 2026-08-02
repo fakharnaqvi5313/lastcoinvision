@@ -2,6 +2,83 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-02 — cosmos/evm integration: two fee markets, a module rename, and three genesis bugs found only by actually running a node
+
+Completing Phase D's EVM half on top of the wasmd milestone (same day). Full design rationale
+lives in [modules/evm/SPEC.md](modules/evm/SPEC.md); this entry covers what needed *fixing*,
+found only by booting a real local node and sending a real signed transaction — none of these
+surfaced from `go build`/`go vet`/unit tests, all of them from `lcvd start` plus `cast send`.
+
+- **`x/feemarket` module-name collision.** cosmos/evm ships its own module literally named
+  `"feemarket"` too (its EVM-side EIP-1559 market). Module names key the module manager,
+  store, and genesis maps — two modules can't share one. Since cosmos/evm's name is
+  upstream/fixed, this chain's own Phase A module was renamed `"lcvfeemarket"`
+  (`x/feemarket/types/keys.go`); its proto package/REST namespace (`lcv.feemarket.v1`) was
+  untouched, since that's independent of the Go-level `ModuleName` constant. Caught immediately
+  by a Go compile error (duplicate map key in `maccPerms`) — the cheapest possible way to catch
+  a collision like this.
+- **Deliberately did not unify the two fee markets.** cosmos/evm's own feemarket must price EVM
+  txs for MetaMask/JSON-RPC compatibility (the whole point of this phase); this chain's
+  original feemarket must keep pricing everything else, unchanged since Phase A. `app/ante.go`
+  was forked from cosmos/evm's own (unexported) branch-builder functions specifically so a
+  tx's type — EVM vs. everything else — picks which fee market's decorator chain runs. See
+  modules/evm/SPEC.md for the full decorator-chain diff.
+- **wasmd's per-process wasmvm cache-directory lock (found in the wasmd milestone) has an EVM
+  analogue that's much stricter: cosmos/evm's chain config is a process-global, set-once
+  value** (`evmtypes.SetChainConfig`), not just a per-app-instance file lock. `cmd/lcvd/cmd/root.go`
+  builds a *second* `app.New(...)` in the same process purely to read back codec/AutoCLI info
+  before the real app is built for `start` — fine for wasmd (each app instance gets its own
+  temp directory), fatal for cosmos/evm (`panic: chainConfig already set`) unless the first,
+  throwaway call is made to resolve to `evmtypes.DefaultEVMChainID` specifically, which is the
+  one value `SetChainConfig`'s guard allows a second, real call to override. Fixed by resolving
+  the EVM chain id from `appOpts` inside `app.New(...)` (empty options → the sentinel; real
+  `app.toml` config → the chain's actual id `2611`) instead of hardcoding the constant at every
+  call site. See modules/evm/SPEC.md's "EVM chain ID" section.
+- **The standard SDK's `SigVerificationDecorator` doesn't recognize eth_secp256k1 pubkeys.**
+  Every gentx (and every tx generally) signed by an `eth_secp256k1`-algorithm account failed
+  with `unrecognized public key type: *ethsecp256k1.PubKey` during `InitGenesis`, because the
+  ante chain's `SigGasConsumer` defaulted to the SDK's own `DefaultSigVerificationGasConsumer`,
+  whose pubkey-type switch has no case for it. Fixed by defaulting to cosmos/evm's own
+  `SigVerificationGasConsumer` instead, which does.
+- **The EVM feemarket's stock default base fee (1,000,000,000) is calibrated for an
+  18-decimal-native EVM chain — 1,000 LCV per gas unit on this 6-decimal one.** Every
+  `cast send` failed with `insufficient funds for gas * price + value` before this was caught,
+  since no funded test account could afford even a plain 21,000-gas transfer at that price.
+  Fixed by scaling the genesis default down by `10^(18-6)`, giving the same real-world gas
+  price the upstream default intends. See modules/evm/SPEC.md's "Base fee" section for the
+  live before/after numbers.
+
+**`TestAppImportExport`/`TestAppSimulationAfterImport`/`TestAppStateDeterminism` (`app/sim_test.go`)
+build multiple app instances within one test process**, which collides with cosmos/evm's
+process-global chain config/coin-info the same way described above — fixed by resetting that
+global state (`evmtypes.NewEVMConfigurator().ResetTestConfig()`) before every app instance after
+the first, which only compiles under `go test -tags=test` (cosmos/evm ships two build-tagged
+variants of this reset machinery; the production, non-`test` one panics if called at all — by
+design, since a real running chain should never need to reset its own chain config). This has
+no effect on production builds (`go build` never passes `-tags=test`) and no effect on the
+default `go test ./...` run either, since these three tests are gated behind
+`simcli.FlagEnabledValue` and self-skip unless invoked with `-Enabled=true` explicitly — exactly
+the same opt-in simulation workflow already established in Phase A/C. Running them now requires
+both flags together, e.g. `go test -tags=test -run TestAppSimulationAfterImport -Enabled=true
+-NumBlocks=100 ./app`.
+
+Running `TestAppImportExport` this way surfaced an unrelated, genuinely pre-existing bug in
+Phase A's `x/emission` module: `ExportGenesis` never exports the keeper's `LastEmissionTime`
+state (only `Params`), and `InitGenesis` always resets `LastEmissionTime` back to
+`params.StartTime` — so a real chain export/import (upgrade, state-sync) would silently rewind
+the decaying emission curve's bookkeeping to its original genesis start time, discarding
+whatever time had actually elapsed. Out of scope for Phase D (no EVM/wasm code involved) —
+flagged as a follow-up task rather than fixed here, to avoid scope-creeping unrelated Phase A
+changes into this phase.
+
+**Net result, verified against a live local node (not just unit tests):** `eth_chainId`,
+`net_version`, `eth_gasPrice` all return correct values; a real signed EVM transfer (`cast
+send ... --value 10ether`, functionally identical to what MetaMask's own "Send" does — both
+speak the same `eth_sendRawTransaction` JSON-RPC call) moved LCV between two accounts, with the
+resulting `eth_getBalance` and `lcvd query bank balances` for both accounts agreeing exactly
+(down to `ulcv`'s 6-decimal precision) — confirming the precisebank bridge is genuinely
+bidirectional. Full build, `go vet`, and the full test suite are clean on top of this.
+
 ## 2026-08-02 — Phase D forced a cosmos-sdk v0.50.14 → v0.53.6 and ibc-go v8 → v10 upgrade, and a full app.go rewrite off depinject
 
 Phase D asks for CosmWasm (wasmd) and EVM (cosmos/evm) support. Neither is compatible with

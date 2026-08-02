@@ -32,6 +32,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+
 	"github.com/lastcoinvision/lcv/app"
 )
 
@@ -45,6 +47,16 @@ var FlagEnableStreamingValue bool
 func init() {
 	simcli.GetSimulatorFlags()
 	flag.BoolVar(&FlagEnableStreamingValue, "EnableStreaming", false, "Enable streaming service")
+}
+
+// resetEVMGlobalConfig resets cosmos/evm's process-global chain config and
+// EVM coin info (x/vm.InitGenesis panics on a second call within the same
+// process otherwise — see DECISIONS.md) before every app.New(...) in this
+// file. Only works — and only needs to be called at all — when this test
+// binary is built with `go test -tags=test`; production builds don't call
+// this and never construct more than one app instance per process.
+func resetEVMGlobalConfig() {
+	evmtypes.NewEVMConfigurator().ResetTestConfig()
 }
 
 // fauxMerkleModeOpt returns a BaseApp option to use a dbStoreAdapter instead of
@@ -184,6 +196,13 @@ func TestAppImportExport(t *testing.T) {
 	newAppOptions[flags.FlagHome] = newDir
 	newAppOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
 
+	// cosmos/evm keeps its chain config and coin info as process-global,
+	// set-once values (x/vm.InitGenesis panics on a second call within the
+	// same process otherwise) — resettable only under the `test` build tag
+	// (`go test -tags=test`), which this file requires for exactly this
+	// reason. See DECISIONS.md.
+	resetEVMGlobalConfig()
+
 	newApp, err := app.New(log.NewNopLogger(), newDB, nil, true, newAppOptions, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
 	require.NoError(t, err)
 	require.Equal(t, app.Name, newApp.Name())
@@ -321,6 +340,8 @@ func TestAppSimulationAfterImport(t *testing.T) {
 	newAppOptions[flags.FlagHome] = newDir
 	newAppOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
 
+	resetEVMGlobalConfig()
+
 	newApp, err := app.New(log.NewNopLogger(), newDB, nil, true, newAppOptions, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
 	require.NoError(t, err)
 	require.Equal(t, app.Name, newApp.Name())
@@ -394,6 +415,13 @@ func TestAppStateDeterminism(t *testing.T) {
 				logger = log.NewTestLogger(t)
 			} else {
 				logger = log.NewNopLogger()
+			}
+
+			// Every iteration after the first needs cosmos/evm's global
+			// config reset — see resetEVMGlobalConfig's doc comment and
+			// DECISIONS.md. Requires `go test -tags=test`.
+			if i != 0 || j != 0 {
+				resetEVMGlobalConfig()
 			}
 
 			db := dbm.NewMemDB()

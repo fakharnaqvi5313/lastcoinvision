@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -17,6 +18,7 @@ import (
 	clienthelpers "cosmossdk.io/client/v2/helpers"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log"
+	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/circuit"
 	circuitkeeper "cosmossdk.io/x/circuit/keeper"
@@ -30,7 +32,6 @@ import (
 	"cosmossdk.io/x/nft"
 	nftkeeper "cosmossdk.io/x/nft/keeper"
 	nftmodule "cosmossdk.io/x/nft/module"
-	txsigning "cosmossdk.io/x/tx/signing"
 	"cosmossdk.io/x/upgrade"
 	upgradekeeper "cosmossdk.io/x/upgrade/keeper"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -38,6 +39,33 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+
+	"github.com/ethereum/go-ethereum/common"
+	corevm "github.com/ethereum/go-ethereum/core/vm"
+	_ "github.com/ethereum/go-ethereum/eth/tracers/js"     // force-load js tracer
+	_ "github.com/ethereum/go-ethereum/eth/tracers/native" // force-load native tracer
+
+	evmante "github.com/cosmos/evm/ante"
+	antetypes "github.com/cosmos/evm/ante/types"
+	evmconfig "github.com/cosmos/evm/config"
+	evmencoding "github.com/cosmos/evm/encoding"
+	evmaddress "github.com/cosmos/evm/encoding/address"
+	evmmempool "github.com/cosmos/evm/mempool"
+	precompiletypes "github.com/cosmos/evm/precompiles/types"
+	srvflags "github.com/cosmos/evm/server/flags"
+	evmutils "github.com/cosmos/evm/utils"
+	"github.com/cosmos/evm/x/erc20"
+	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
+	evmfeemarket "github.com/cosmos/evm/x/feemarket"
+	evmfeemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
+	evmfeemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	"github.com/cosmos/evm/x/precisebank"
+	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
+	precisebanktypes "github.com/cosmos/evm/x/precisebank/types"
+	"github.com/cosmos/evm/x/vm"
+	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -52,8 +80,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	"github.com/cosmos/cosmos-sdk/version"
@@ -142,6 +170,26 @@ const (
 	AccountAddressPrefix = "lcv"
 	// ChainCoinType is the coin type of the chain.
 	ChainCoinType = 118
+
+	// EVMChainID is the EIP-155 replay-protection chain id used by this
+	// chain's EVM. Arbitrary placeholder for devnet/testnet — a real
+	// mainnet launch must first reserve a permanent id via
+	// https://github.com/ethereum-lists/chains (chainlist.org) rather than
+	// reusing this value. See modules/evm/SPEC.md.
+	EVMChainID = 2611
+
+	// EVMBaseDenom is the denom EVM gas/state transitions are priced and
+	// held in — the chain's existing bond denom, unchanged from Phase A.
+	EVMBaseDenom = "ulcv"
+	// EVMExtendedDenom is the atto-precision (18-decimal) denom
+	// cosmos/evm's x/precisebank tracks internally so ulcv (6 decimals)
+	// can still be represented at full EVM precision without minting any
+	// new supply — see modules/evm/SPEC.md.
+	EVMExtendedDenom = "alcv"
+	// EVMDisplayDenom is the human-facing unit name; combined with the
+	// bank denom metadata registered in bankAppModuleBasic, this is what
+	// tells cosmos/evm that EVMBaseDenom has 6 decimals, not 18.
+	EVMDisplayDenom = "lcv"
 )
 
 var (
@@ -172,6 +220,11 @@ var maccPerms = map[string][]string{
 	icatypes.ModuleName:                           nil,
 	wasmtypes.ModuleName:                          {authtypes.Burner},
 	emissionmoduletypes.StakingRewardsAccountName: nil,
+	// Cosmos EVM modules
+	evmtypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
+	evmfeemarkettypes.ModuleName: nil,
+	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
+	precisebanktypes.ModuleName:  {authtypes.Minter, authtypes.Burner},
 	// Transient holding account for the fee-market ante decorator: fees
 	// pass through here so the burned portion of the base fee can
 	// actually be burned before the remainder is forwarded on.
@@ -196,8 +249,10 @@ func GetMaccPerms() map[string][]string {
 }
 
 // BlockedAddresses returns all the app's blocked account addresses: module
-// accounts that must never receive funds via a plain MsgSend, only through
-// their module's own designated code path.
+// accounts that must never receive funds via a plain MsgSend (only through
+// their module's own designated code path), plus every EVM precompile
+// address (Ethereum's own precompiles and cosmos/evm's static precompiles),
+// which likewise must never be treated as an ordinary bank account.
 func BlockedAddresses() map[string]bool {
 	blocked := map[string]bool{
 		authtypes.FeeCollectorName:     true,
@@ -215,6 +270,15 @@ func BlockedAddresses() map[string]bool {
 		// govtypes.ModuleName is deliberately NOT blocked: it may receive
 		// funds directly (e.g. community-pool funding).
 	}
+
+	blockedPrecompilesHex := append([]string{}, evmtypes.AvailableStaticPrecompiles...)
+	for _, addr := range corevm.PrecompiledAddressesPrague {
+		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
+	}
+	for _, precompile := range blockedPrecompilesHex {
+		blocked[evmutils.Bech32StringFromHexAddress(precompile)] = true
+	}
+
 	return blocked
 }
 
@@ -239,7 +303,11 @@ type App struct {
 	interfaceRegistry codectypes.InterfaceRegistry
 
 	// keys to access the substores
-	keys map[string]*storetypes.KVStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	tkeys map[string]*storetypes.TransientStoreKey
+
+	pendingTxListeners []evmante.PendingTxListener
+	clientCtx          client.Context
 
 	// keepers
 	AccountKeeper         authkeeper.AccountKeeper
@@ -269,6 +337,13 @@ type App struct {
 	// CosmWasm
 	WasmKeeper wasmkeeper.Keeper
 
+	// Cosmos EVM
+	EVMFeeMarketKeeper evmfeemarketkeeper.Keeper
+	EVMKeeper          *evmkeeper.Keeper
+	Erc20Keeper        erc20keeper.Keeper
+	PreciseBankKeeper  precisebankkeeper.Keeper
+	EVMMempool         *evmmempool.ExperimentalEVMMempool
+
 	// chain modules
 	EmissionKeeper  emissionmodulekeeper.Keeper
 	FeemarketKeeper feemarketmodulekeeper.Keeper
@@ -297,22 +372,32 @@ func New(
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) (*App, error) {
-	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
-		ProtoFiles: proto.HybridResolver,
-		SigningOptions: txsigning.Options{
-			AddressCodec:          authcodec.NewBech32Codec(AccountAddressPrefix),
-			ValidatorAddressCodec: authcodec.NewBech32Codec(AccountAddressPrefix + "valoper"),
-		},
-	})
-	if err != nil {
-		return nil, err
+	// evmtypes.SetChainConfig (called inside evmkeeper.NewKeeper below) is
+	// a process-global, set-once value: a second call panics unless the
+	// FIRST call used exactly evmtypes.DefaultEVMChainID as a sentinel.
+	// cmd/lcvd/cmd/root.go builds a throwaway app.New(...) purely to read
+	// back its codec/AutoCLI options (via simtestutil.EmptyAppOptions-style
+	// options with no evm-chain-id key set) before the real app is built
+	// for `start` et al. (from real config with evm.evm-chain-id set) — so
+	// resolving the id from appOpts, defaulting to the sentinel rather than
+	// this chain's real EVMChainID constant, is what lets the second,
+	// real construction actually take effect instead of panicking. See
+	// DECISIONS.md.
+	evmChainID := cast.ToUint64(appOpts.Get(srvflags.EVMChainID))
+	if evmChainID == 0 {
+		evmChainID = evmtypes.DefaultEVMChainID
 	}
-	appCodec := codec.NewProtoCodec(interfaceRegistry)
-	legacyAmino := codec.NewLegacyAmino()
-	txConfig := authtx.NewTxConfig(appCodec, authtx.DefaultSignModes)
 
-	std.RegisterLegacyAminoCodec(legacyAmino)
-	std.RegisterInterfaces(interfaceRegistry)
+	// evmencoding.MakeConfig (rather than a hand-built interface registry,
+	// as used for the wasmd-only milestone) registers the eth_secp256k1
+	// pubkey type, EIP-712 signing support, and custom GetSigners for
+	// MsgEthereumTx/MsgConvertERC20 that cosmos/evm requires — see
+	// DECISIONS.md and modules/evm/SPEC.md.
+	encodingConfig := evmencoding.MakeConfig(evmChainID)
+	appCodec := encodingConfig.Codec
+	legacyAmino := encodingConfig.Amino
+	interfaceRegistry := encodingConfig.InterfaceRegistry
+	txConfig := encodingConfig.TxConfig
 
 	bApp := baseapp.NewBaseApp(Name, logger, db, txConfig.TxDecoder(), baseAppOptions...)
 	bApp.SetCommitMultiStoreTracer(traceStore)
@@ -331,11 +416,15 @@ func New(
 		icahosttypes.StoreKey, icacontrollertypes.StoreKey,
 		// wasm key
 		wasmtypes.StoreKey,
+		// Cosmos EVM keys
+		evmtypes.StoreKey, evmfeemarkettypes.StoreKey, erc20types.StoreKey, precisebanktypes.StoreKey,
 		// chain module keys
 		emissionmoduletypes.StoreKey, feemarketmoduletypes.StoreKey,
 		identitymoduletypes.StoreKey, registrymoduletypes.StoreKey,
 		votingmoduletypes.StoreKey, taxrailmoduletypes.StoreKey,
 	)
+
+	tkeys := storetypes.NewTransientStoreKeys(evmtypes.TransientKey, evmfeemarkettypes.TransientKey)
 
 	if err := bApp.RegisterStreamingServices(appOpts, keys); err != nil {
 		return nil, err
@@ -348,6 +437,7 @@ func New(
 		txConfig:          txConfig,
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
+		tkeys:             tkeys,
 	}
 
 	authAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
@@ -360,12 +450,17 @@ func New(
 	)
 	bApp.SetParamStore(app.ConsensusParamsKeeper.ParamsStore)
 
+	// evmaddress.NewEvmCodec (rather than a plain bech32 codec) accepts
+	// both hex ("0x...") and bech32 address strings and treats them as the
+	// same 20-byte address space — required so a MetaMask-style
+	// Keccak256-derived address and its bech32 encoding always refer to
+	// the same account.
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[authtypes.StoreKey]),
 		authtypes.ProtoBaseAccount,
 		maccPerms,
-		authcodec.NewBech32Codec(AccountAddressPrefix),
+		evmaddress.NewEvmCodec(AccountAddressPrefix),
 		AccountAddressPrefix,
 		authAddr,
 	)
@@ -385,8 +480,8 @@ func New(
 		app.AccountKeeper,
 		app.BankKeeper,
 		authAddr,
-		authcodec.NewBech32Codec(AccountAddressPrefix+"valoper"),
-		authcodec.NewBech32Codec(AccountAddressPrefix+"valcons"),
+		evmaddress.NewEvmCodec(AccountAddressPrefix+"valoper"),
+		evmaddress.NewEvmCodec(AccountAddressPrefix+"valcons"),
 	)
 
 	app.MintKeeper = mintkeeper.NewKeeper(
@@ -551,6 +646,60 @@ func New(
 		app.AccountKeeper.AddressCodec(),
 	)
 
+	// Cosmos EVM keepers. EVMKeeper is constructed before Erc20Keeper
+	// because it takes a pointer to app.Erc20Keeper (assigned afterward —
+	// fine, since the pointer is only dereferenced at call time, by which
+	// point Erc20Keeper is populated), matching cosmos/evm's own reference
+	// app (evmd) ordering exactly.
+	app.EVMFeeMarketKeeper = evmfeemarketkeeper.NewKeeper(
+		appCodec, authtypes.NewModuleAddress(govtypes.ModuleName),
+		keys[evmfeemarkettypes.StoreKey],
+		tkeys[evmfeemarkettypes.TransientKey],
+	)
+
+	app.PreciseBankKeeper = precisebankkeeper.NewKeeper(
+		appCodec,
+		keys[precisebanktypes.StoreKey],
+		app.BankKeeper,
+		app.AccountKeeper,
+	)
+
+	app.EVMKeeper = evmkeeper.NewKeeper(
+		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], keys,
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		app.AccountKeeper,
+		app.PreciseBankKeeper,
+		app.StakingKeeper,
+		app.EVMFeeMarketKeeper,
+		&app.ConsensusParamsKeeper,
+		&app.Erc20Keeper,
+		evmChainID,
+		cast.ToString(appOpts.Get(srvflags.EVMTracer)),
+	).WithStaticPrecompiles(
+		precompiletypes.DefaultStaticPrecompiles(
+			*app.StakingKeeper,
+			app.DistrKeeper,
+			app.PreciseBankKeeper,
+			&app.Erc20Keeper,
+			&app.TransferKeeper,
+			app.IBCKeeper.ChannelKeeper,
+			app.GovKeeper,
+			app.SlashingKeeper,
+			appCodec,
+		),
+	)
+
+	app.Erc20Keeper = erc20keeper.NewKeeper(
+		keys[erc20types.StoreKey],
+		appCodec,
+		authtypes.NewModuleAddress(govtypes.ModuleName),
+		app.AccountKeeper,
+		app.PreciseBankKeeper,
+		app.EVMKeeper,
+		app.StakingKeeper,
+		&app.TransferKeeper,
+	)
+
 	// chain modules
 	app.EmissionKeeper = emissionmodulekeeper.NewKeeper(
 		appCodec,
@@ -628,16 +777,28 @@ func New(
 	}
 
 	anteHandler, err := NewAnteHandler(HandlerOptions{
-		AccountKeeper:   app.AccountKeeper,
-		BankKeeper:      app.BankKeeper,
-		FeemarketKeeper: app.FeemarketKeeper,
-		FeegrantKeeper:  app.FeeGrantKeeper,
-		SignModeHandler: txConfig.SignModeHandler(),
+		AccountKeeper:          app.AccountKeeper,
+		BankKeeper:             app.BankKeeper,
+		FeemarketKeeper:        app.FeemarketKeeper,
+		FeegrantKeeper:         app.FeeGrantKeeper,
+		SignModeHandler:        txConfig.SignModeHandler(),
+		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
+		IBCKeeper:              app.IBCKeeper,
+		EvmKeeper:              app.EVMKeeper,
+		EvmFeeMarketKeeper:     app.EVMFeeMarketKeeper,
+		MaxTxGasWanted:         cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),
+		PendingTxListener:      app.onPendingTx,
 	})
 	if err != nil {
 		return nil, err
 	}
 	app.SetAnteHandler(anteHandler)
+
+	// Set the EVM priority-nonce mempool. If you wish to use the SDK's
+	// default (FIFO) mempool instead, remove this call.
+	if err := app.configureEVMMempool(appOpts, logger); err != nil {
+		return nil, fmt.Errorf("failed to configure EVM mempool: %w", err)
+	}
 
 	/****  Module Options ****/
 
@@ -666,6 +827,11 @@ func New(
 		ibctransfer.NewAppModule(app.TransferKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
 		ibctm.NewAppModule(app.tmLightClientModule),
+		// Cosmos EVM modules
+		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.BankKeeper, app.AccountKeeper.AddressCodec()),
+		evmfeemarket.NewAppModule(app.EVMFeeMarketKeeper),
+		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
+		precisebank.NewAppModule(app.PreciseBankKeeper, app.BankKeeper, app.AccountKeeper),
 		// chain modules
 		emissionmodule.NewAppModule(appCodec, app.EmissionKeeper, app.AccountKeeper, app.BankKeeper),
 		feemarketmodule.NewAppModule(appCodec, app.FeemarketKeeper, app.AccountKeeper, app.BankKeeper),
@@ -678,9 +844,12 @@ func New(
 	app.BasicModuleManager = module.NewBasicManagerFromManager(
 		app.ModuleManager,
 		map[string]module.AppModuleBasic{
-			genutiltypes.ModuleName: genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
-			govtypes.ModuleName:     gov.NewAppModuleBasic(getGovProposalHandlers()),
-			wasmtypes.ModuleName:    wasmAppModuleBasic{},
+			genutiltypes.ModuleName:      genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
+			govtypes.ModuleName:          gov.NewAppModuleBasic(getGovProposalHandlers()),
+			wasmtypes.ModuleName:         wasmAppModuleBasic{},
+			banktypes.ModuleName:         bankAppModuleBasic{},
+			evmtypes.ModuleName:          evmAppModuleBasic{},
+			evmfeemarkettypes.ModuleName: evmFeemarketAppModuleBasic{},
 		},
 	)
 	app.BasicModuleManager.RegisterLegacyAminoCodec(legacyAmino)
@@ -689,6 +858,7 @@ func New(
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
 		authtypes.ModuleName,
+		evmtypes.ModuleName,
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -717,6 +887,13 @@ func New(
 		votingmoduletypes.ModuleName,
 		taxrailmoduletypes.ModuleName,
 		wasmtypes.ModuleName,
+		// Cosmos EVM modules — erc20 and evm-feemarket must run before evm
+		// itself (evm's base-fee adjustment reads the current block's gas
+		// usage tallied by feemarket's own BeginBlocker).
+		erc20types.ModuleName,
+		evmfeemarkettypes.ModuleName,
+		evmtypes.ModuleName,
+		precisebanktypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -736,6 +913,11 @@ func New(
 		votingmoduletypes.ModuleName,
 		taxrailmoduletypes.ModuleName,
 		wasmtypes.ModuleName,
+		// Cosmos EVM modules
+		evmtypes.ModuleName,
+		erc20types.ModuleName,
+		evmfeemarkettypes.ModuleName,
+		precisebanktypes.ModuleName,
 	)
 
 	genesisModuleOrder := []string{
@@ -748,6 +930,13 @@ func New(
 		minttypes.ModuleName,
 		crisistypes.ModuleName,
 		ibcexported.ModuleName,
+		// Cosmos EVM modules — evm must be initialized before genutil so
+		// that gentx transactions built against this genesis see correct
+		// feemarket params (mirrors cosmos/evm's own reference app).
+		evmtypes.ModuleName,
+		evmfeemarkettypes.ModuleName,
+		erc20types.ModuleName,
+		precisebanktypes.ModuleName,
 		genutiltypes.ModuleName,
 		evidencetypes.ModuleName,
 		authz.ModuleName,
@@ -786,11 +975,20 @@ func New(
 
 	overrideModules := map[string]module.AppModuleSimulation{
 		authtypes.ModuleName: auth.NewAppModule(app.appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts, nil),
+		// The EVM stack's own randomized simulation genesis states don't
+		// know about this chain's denom (bank), EvmDenom (vm), or its
+		// rescaled base fee (evm feemarket) — see the App/Basic-manager
+		// overrides above and DECISIONS.md for why each is fixed rather
+		// than randomized here.
+		banktypes.ModuleName:         bankAppModuleSimulation{AppModule: bank.NewAppModule(app.appCodec, app.BankKeeper, app.AccountKeeper, nil)},
+		evmtypes.ModuleName:          evmAppModuleSimulation{AppModule: vm.NewAppModule(app.EVMKeeper, app.AccountKeeper, app.BankKeeper, app.AccountKeeper.AddressCodec())},
+		evmfeemarkettypes.ModuleName: evmFeemarketAppModuleSimulation{AppModule: evmfeemarket.NewAppModule(app.EVMFeeMarketKeeper)},
 	}
 	app.sm = module.NewSimulationManagerFromAppModules(app.ModuleManager.Modules, overrideModules)
 	app.sm.RegisterStoreDecoders()
 
 	app.MountKVStores(keys)
+	app.MountTransientStores(tkeys)
 
 	app.SetInitChainer(app.InitChainer)
 	app.SetPreBlocker(app.PreBlocker)
@@ -974,4 +1172,207 @@ func (wasmAppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
 			InstantiateDefaultPermission: wasmtypes.AccessTypeEverybody,
 		},
 	})
+}
+
+// bankAppModuleBasic overrides bank's stock DefaultGenesis to additionally
+// register denom metadata for ulcv. cosmos/evm's x/vm module derives the
+// EVM coin's decimals from this metadata at genesis (looking up the
+// DenomUnit matching the Display field) — without it, InitGenesis panics
+// with "denom metadata could not be found". See modules/evm/SPEC.md.
+type bankAppModuleBasic struct {
+	bank.AppModuleBasic
+}
+
+func (bankAppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
+	return cdc.MustMarshalJSON(bankGenesisWithDenomMetadata())
+}
+
+// bankGenesisWithDenomMetadata is shared by bankAppModuleBasic (real
+// genesis, via `lcvd init`) and bankAppModuleSimulation (the randomized
+// block simulator's genesis) — both need the ulcv/lcv denom metadata,
+// since x/vm's InitGenesis panics without it regardless of which path
+// produced the surrounding genesis.
+func bankGenesisWithDenomMetadata() *banktypes.GenesisState {
+	genState := banktypes.DefaultGenesisState()
+	genState.DenomMetadata = append(genState.DenomMetadata, banktypes.Metadata{
+		Description: "The native staking and gas token of LastcoinVision",
+		Base:        EVMBaseDenom,
+		Display:     EVMDisplayDenom,
+		Name:        "LastcoinVision",
+		Symbol:      "LCV",
+		DenomUnits: []*banktypes.DenomUnit{
+			{Denom: EVMBaseDenom, Exponent: 0, Aliases: []string{"microlcv"}},
+			{Denom: EVMDisplayDenom, Exponent: 6},
+		},
+	})
+	return genState
+}
+
+// bankAppModuleSimulation overrides bank's own randomized simulation
+// genesis (which knows nothing about this chain's denom) with the fixed,
+// metadata-bearing genesis above — registered in the simulation manager's
+// overrideModules map in New(). Embeds the real bank.AppModule so
+// WeightedOperations/RegisterStoreDecoder (bank's own randomized
+// send/multisend operations) are unaffected; only genesis generation
+// changes.
+type bankAppModuleSimulation struct {
+	bank.AppModule
+}
+
+func (bankAppModuleSimulation) GenerateGenesisState(simState *module.SimulationState) {
+	simState.GenState[banktypes.ModuleName] = simState.Cdc.MustMarshalJSON(bankGenesisWithDenomMetadata())
+}
+
+// evmAppModuleBasic overrides the vm module's stock DefaultGenesis to set
+// this chain's EVM denom (the existing ulcv bond denom, unchanged) and its
+// 18-decimal extended denom (alcv, tracked internally by x/precisebank —
+// see modules/evm/SPEC.md), and to enable every default static precompile
+// and preinstall, matching cosmos/evm's own reference app.
+type evmAppModuleBasic struct {
+	vm.AppModuleBasic
+}
+
+func (evmAppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
+	return cdc.MustMarshalJSON(evmGenesisState())
+}
+
+func evmGenesisState() *evmtypes.GenesisState {
+	genState := evmtypes.DefaultGenesisState()
+	genState.Params.EvmDenom = EVMBaseDenom
+	genState.Params.ExtendedDenomOptions = &evmtypes.ExtendedDenomOptions{ExtendedDenom: EVMExtendedDenom}
+	genState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	genState.Preinstalls = evmtypes.DefaultPreinstalls
+	return genState
+}
+
+// evmAppModuleSimulation overrides the vm module's own randomized
+// simulation genesis (which would otherwise pick a random, non-ulcv
+// EvmDenom, among other things) with the same fixed genesis DefaultGenesis
+// uses. See bankAppModuleSimulation for why this override exists.
+type evmAppModuleSimulation struct {
+	vm.AppModule
+}
+
+func (evmAppModuleSimulation) GenerateGenesisState(simState *module.SimulationState) {
+	simState.GenState[evmtypes.ModuleName] = simState.Cdc.MustMarshalJSON(evmGenesisState())
+}
+
+// evmFeemarketAppModuleBasic overrides the EVM feemarket module's stock
+// DefaultGenesis, whose DefaultBaseFee (1_000_000_000) is calibrated for an
+// 18-decimal-native EVM chain — i.e. "1 gwei" real value. On this chain the
+// EVM's native denom (ulcv) has only 6 decimals, so that same raw number
+// means 1_000_000_000 ulcv per gas unit (1,000 LCV/gas — found live: every
+// tx failed with "insufficient funds for gas * price + value" because the
+// EVM base fee had been priced a trillion times too high). Scaling the
+// default down by 10^(18-6) gives the same real-world gas price the
+// upstream default intends. See modules/evm/SPEC.md.
+type evmFeemarketAppModuleBasic struct {
+	evmfeemarket.AppModuleBasic
+}
+
+func (evmFeemarketAppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
+	return cdc.MustMarshalJSON(evmFeemarketGenesisState())
+}
+
+func evmFeemarketGenesisState() *evmfeemarkettypes.GenesisState {
+	genState := evmfeemarkettypes.DefaultGenesisState()
+	decimalGap := math.LegacyNewDec(10).Power(18 - 6) // 10^12
+	genState.Params.BaseFee = evmfeemarkettypes.DefaultBaseFee.Quo(decimalGap)
+	return genState
+}
+
+// evmFeemarketAppModuleSimulation overrides the EVM feemarket module's own
+// randomized simulation genesis with the same rescaled-base-fee genesis
+// DefaultGenesis uses — otherwise the simulator hits the exact
+// insufficient-funds bug found live (see DECISIONS.md).
+type evmFeemarketAppModuleSimulation struct {
+	evmfeemarket.AppModule
+}
+
+func (evmFeemarketAppModuleSimulation) GenerateGenesisState(simState *module.SimulationState) {
+	simState.GenState[evmfeemarkettypes.ModuleName] = simState.Cdc.MustMarshalJSON(evmFeemarketGenesisState())
+}
+
+// onPendingTx notifies every listener registered via
+// RegisterPendingTxListener (the JSON-RPC server's eth_subscribe
+// "newPendingTransactions" feed) that a new Ethereum tx hash has entered
+// the mempool.
+func (app *App) onPendingTx(hash common.Hash) {
+	for _, listener := range app.pendingTxListeners {
+		listener(hash)
+	}
+}
+
+// RegisterPendingTxListener is used by the JSON-RPC server to subscribe to
+// pending-transaction notifications.
+func (app *App) RegisterPendingTxListener(listener func(common.Hash)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
+}
+
+// GetMempool implements cosmosevmserver.Application.
+func (app *App) GetMempool() sdkmempool.ExtMempool {
+	return app.EVMMempool
+}
+
+// SetClientCtx implements cosmosevmserver.Application.
+func (app *App) SetClientCtx(clientCtx client.Context) {
+	app.clientCtx = clientCtx
+}
+
+// Close unsubscribes from the CometBFT event bus (if set) and closes the
+// mempool and underlying BaseApp.
+func (app *App) Close() error {
+	var err error
+	if app.EVMMempool != nil {
+		err = app.EVMMempool.Close()
+	}
+	return errors.Join(err, app.BaseApp.Close())
+}
+
+// configureEVMMempool wires cosmos/evm's experimental priority-nonce
+// mempool, required for correct EVM tx ordering/replacement semantics
+// (nonce gaps, gas-price-based eviction) that the SDK's default mempool
+// doesn't provide. Mirrors cosmos/evm's own evmd/mempool.go exactly.
+func (app *App) configureEVMMempool(appOpts servertypes.AppOptions, logger log.Logger) error {
+	if evmtypes.GetChainConfig() == nil {
+		logger.Debug("evm chain config is not set, skipping mempool configuration")
+		return nil
+	}
+
+	cosmosPoolMaxTx := evmconfig.GetCosmosPoolMaxTx(appOpts, logger)
+	if cosmosPoolMaxTx < 0 {
+		logger.Debug("app-side mempool is disabled, skipping evm mempool configuration")
+		return nil
+	}
+
+	mempoolConfig := &evmmempool.EVMMempoolConfig{
+		AnteHandler:      app.AnteHandler(),
+		LegacyPoolConfig: evmconfig.GetLegacyPoolConfig(appOpts, logger),
+		BlockGasLimit:    evmconfig.GetBlockGasLimit(appOpts, logger),
+		MinTip:           evmconfig.GetMinTip(appOpts, logger),
+	}
+
+	evmMempool := evmmempool.NewExperimentalEVMMempool(
+		app.CreateQueryContext,
+		logger,
+		app.EVMKeeper,
+		app.EVMFeeMarketKeeper,
+		app.txConfig,
+		app.clientCtx,
+		mempoolConfig,
+		cosmosPoolMaxTx,
+	)
+	app.EVMMempool = evmMempool
+	app.SetMempool(evmMempool)
+	app.SetCheckTxHandler(evmmempool.NewCheckTxHandler(evmMempool))
+
+	abciProposalHandler := baseapp.NewDefaultProposalHandler(evmMempool, app.BaseApp)
+	abciProposalHandler.SetSignerExtractionAdapter(
+		evmmempool.NewEthSignerExtractionAdapter(
+			sdkmempool.NewDefaultSignerExtractionAdapter(),
+		),
+	)
+	app.SetPrepareProposal(abciProposalHandler.PrepareProposalHandler())
+
+	return nil
 }
