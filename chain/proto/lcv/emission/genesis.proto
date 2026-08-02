@@ -14,4 +14,11 @@ message GenesisState {
     (gogoproto.nullable) = false,
     (amino.dont_omitempty) = true
   ];
+  // last_emission_time is the unix time (seconds) up to which staking
+  // rewards have already been emitted. Zero means a fresh genesis with no
+  // prior emission history, in which case InitGenesis anchors it to
+  // params.start_time instead. Exported so a chain export/import (upgrade,
+  // state-sync) doesn't rewind the decay curve's bookkeeping back to the
+  // original genesis start time.
+  int64 last_emission_time = 2;
 }

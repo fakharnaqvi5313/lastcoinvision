@@ -20,13 +20,23 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, genState types.GenesisState) 
 	if err := k.SetParams(ctx, params); err != nil {
 		panic(err)
 	}
-	k.SetLastEmissionTime(ctx, params.StartTime)
+
+	lastEmissionTime := genState.LastEmissionTime
+	if lastEmissionTime == 0 {
+		// Fresh genesis: nothing has emitted yet, so anchor to the same
+		// start time as the params curve itself.
+		lastEmissionTime = params.StartTime
+	}
+	k.SetLastEmissionTime(ctx, lastEmissionTime)
 }
 
 // ExportGenesis returns the module's exported genesis.
 func ExportGenesis(ctx sdk.Context, k keeper.Keeper) *types.GenesisState {
 	genesis := types.DefaultGenesis()
 	genesis.Params = k.GetParams(ctx)
+	if lastEmissionTime, found := k.GetLastEmissionTime(ctx); found {
+		genesis.LastEmissionTime = lastEmissionTime
+	}
 
 	// this line is used by starport scaffolding # genesis/module/export
 

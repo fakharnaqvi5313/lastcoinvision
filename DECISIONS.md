@@ -67,9 +67,16 @@ Phase A's `x/emission` module: `ExportGenesis` never exports the keeper's `LastE
 state (only `Params`), and `InitGenesis` always resets `LastEmissionTime` back to
 `params.StartTime` — so a real chain export/import (upgrade, state-sync) would silently rewind
 the decaying emission curve's bookkeeping to its original genesis start time, discarding
-whatever time had actually elapsed. Out of scope for Phase D (no EVM/wasm code involved) —
-flagged as a follow-up task rather than fixed here, to avoid scope-creeping unrelated Phase A
-changes into this phase.
+whatever time had actually elapsed. Fixed directly (small, well-contained, and the user asked for it explicitly): added
+`last_emission_time` to `GenesisState` (`proto/lcv/emission/genesis.proto`), `ExportGenesis`
+now populates it from `k.GetLastEmissionTime`, and `InitGenesis` uses it when non-zero
+(falling back to `params.StartTime` only for a genuinely fresh genesis) — see
+`x/emission/module/genesis.go` and its new round-trip tests. `TestAppImportExport` still fails
+after this fix, on a *different*, unrelated store mismatch (looks like per-account indexed
+state, possibly from the EVM/wasm stack's own simulated operations) — flagged separately as a
+follow-up rather than chased further here, since it's a distinct issue from the one reported
+and this test is opt-in (`-Enabled=true -tags=test`), not part of Phase D's own acceptance
+criteria.
 
 **Net result, verified against a live local node (not just unit tests):** `eth_chainId`,
 `net_version`, `eth_gasPrice` all return correct values; a real signed EVM transfer (`cast
