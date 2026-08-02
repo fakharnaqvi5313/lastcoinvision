@@ -190,17 +190,35 @@ via `eth_getCode`.
   rejected for a nonce mismatch, the devnet's block height stopped advancing entirely (while
   the process kept running and consuming CPU) until restarted with fresh state. A fresh devnet
   instance was unaffected and is what the Hardhat/MetaMask verifications above were run
-  against. **Follow-up reproduction attempt (same day):** deliberately triggered both nonce
-  error variants cast can produce — "tx nonce is higher than account nonce" (future nonce) and
-  "tx nonce is lower than account nonce" (replayed/stale nonce, the exact error text from the
-  original incident) — against a fresh devnet, individually and combined with a large
-  (~12KB, contract-deployment-sized) payload submitted multiple times. Blocks kept advancing
-  normally after every one of these; the stall did not reproduce. The original incident
-  involved several successful transactions from a *retrying* Hardhat deployment script (which
-  resubmits after a client-side timeout, potentially with a stale nonce read — see the
-  `eth_getTransactionCount` "latest" vs "pending" discrepancy noted below) before the
-  rejected broadcast, so the trigger is likely some multi-step interaction not captured by a
-  single deliberate rejection — not yet reliably reproducible on demand.
+  against. **Two rounds of follow-up reproduction attempts, all unsuccessful** (blocks kept
+  advancing normally in every case):
+  1. Both nonce-error variants individually — "tx nonce is higher than account nonce" (future
+     gap) and "tx nonce is lower than account nonce" (stale replay, the exact error text from
+     the original incident) — against a fresh devnet.
+  2. The same stale-nonce error combined with a large (~12KB, contract-deployment-sized)
+     payload submitted multiple times.
+  3. A stale-nonce replay of an already-mined nonce, immediately followed by a burst of
+     *valid, higher* nonces from the same account (testing the hypothesis that
+     `mempool.InsertInvalidNonce` — called for **both** `ErrNonceGap` and `ErrNonceLow`, per
+     `mempool/check_tx.go`, despite its doc comment only describing the gap case — might
+     retain a permanently-unfillable low-nonce entry that blocks the account's later,
+     otherwise-valid transactions behind it, since EVM mempools require gapless per-account
+     nonces). All three higher-nonce transactions were mined normally; the underlying
+     `legacypool`'s own `Add`/`validateTx` path apparently still rejects a truly-stale nonce
+     outright rather than retaining it, so this plausible-looking code path did not reproduce
+     the stall either.
+  4. Firing 30 concurrent read-only RPC calls, and separately 10 concurrent broadcasts of the
+     *exact same* transaction (identical nonce), to probe for a locking/race condition in the
+     mempool's `Add`/`Remove`/`Select` methods. No effect in either case.
+
+  The original incident involved several successful transactions from a *retrying* Hardhat
+  deployment script (which resubmits after a client-side timeout, potentially reading a stale
+  nonce — see the `eth_getTransactionCount` "latest" vs "pending" discrepancy noted below)
+  before the rejected broadcast that immediately preceded the stall. The trigger is most
+  likely some multi-step interaction between repeated client-side timeouts/retries and mempool
+  state that these single-shot, deliberately-constructed scenarios don't capture — it remains
+  unconfirmed beyond the original single observation despite substantial, systematic
+  reproduction effort.
 - **`eth_getTransactionCount(addr, "latest")` can return a stale value.** Observed once on the
   same broken instance as the mempool stall above: `"latest"` returned a lower count than
   `"pending"` even though the discrepancy was checked before the stall was confirmed. Also not
