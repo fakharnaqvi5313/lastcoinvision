@@ -2,6 +2,91 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-02 — Phase D forced a cosmos-sdk v0.50.14 → v0.53.6 and ibc-go v8 → v10 upgrade, and a full app.go rewrite off depinject
+
+Phase D asks for CosmWasm (wasmd) and EVM (cosmos/evm) support. Neither is compatible with
+this chain's stack as it stood at the end of Phase C:
+
+- **No compatible wasmd/cosmos/evm version exists for cosmos-sdk v0.50.14.** wasmd's own
+  v0.5x series targets v0.50.x, but the newest wasmd release line that also lines up with an
+  *official, non-forked* cosmos/evm release is wasmd v0.61.x + cosmos/evm v0.6.1, both of
+  which require **cosmos-sdk v0.53.6**. The only wasmd/cosmos-evm combination compatible with
+  v0.50.14 is cosmos/evm v0.1.0/v0.2.0, which pulls in cosmos-sdk via a `replace` directive
+  pointing at an **unofficial forked commit** (`github.com/cosmos/cosmos-sdk
+  v0.50.13-0.20250319183239-...`), not a tagged release — a materially worse choice for a
+  chain marketed as government-grade, since it replaces cosmos-sdk *everywhere in the binary*,
+  not just for the EVM module. Decision, confirmed with the user given the size of this
+  tradeoff: upgrade to the official v0.53.6 release and pair it with official wasmd v0.61.14 /
+  cosmos/evm v0.6.1, at the cost of a larger migration.
+- **wasmd v0.61.x and cosmos/evm v0.6.1 both require ibc-go v10**, which dropped the
+  `x/capability` module entirely (port/channel ownership no longer needs a separate capability
+  system) and dropped the ICS-29 fee middleware (`29-fee`) outright — incentivized packet
+  relaying is no longer available on this chain. ibc-go v8 and v10 are different Go modules
+  (different major-version import paths), so nothing *forces* removing v8, but wasmd's and
+  cosmos/evm's keepers are typed against v10's `ibckeeper.Keeper`, and a chain can only
+  meaningfully run one IBC core (shared store keys, shared client/channel state) — so the
+  whole app's IBC wiring (transfer, interchain-accounts) moved to v10 together with wasm/evm.
+- **Neither wasmd nor cosmos/evm ship a depinject/appconfig module.** Both follow the older
+  "manually construct every keeper in `app.go`" pattern (as does their own reference chains,
+  `wasmd/app` and `cosmos/evm/evmd`) — there is no `appmodule.Provide`-based wiring available
+  for either. Since a chain can only have one `app.go` construction style, `app/app_config.go`
+  (the old `depinject.Configs`/`appconfig.Compose` setup) was deleted and `app/app.go` was
+  rewritten to manually construct every keeper — all 6 custom modules included — directly,
+  following the pattern in `wasmd/app/app.go` and `cosmos/evm/evmd/app.go`. `cmd/lcvd/cmd/root.go`
+  was rewritten the same way: it builds a throwaway `app.New(...)` instance to read back the
+  already-configured codec/tx-config/AutoCLI options, exactly as `cosmos/evm/evmd`'s and
+  `wasmd`'s own root commands do.
+- **`x/params` was dropped.** It existed solely so `app/ibc.go` could register legacy param
+  subspaces for `ibcexported`/`ibctransfertypes`/ICA — none of which ibc-go v10's modules use
+  anymore (they're on the current collections-based params pattern). Neither wasmd's nor
+  cosmos/evm's own reference apps register `x/params` either.
+- **A latent SDK test-helper bug became a real failure under v0.53.** `app/sim_test.go`'s
+  `simtestutil.SimulationOperations(bApp, bApp.AppCodec(), config)` internally builds its own
+  disposable tx config via `moduletestutil.MakeTestTxConfig()`, which defaults to a
+  **hardcoded `"cosmos"` bech32 prefix** or `SigningOptions.AccAddressPrefix` unset — this has
+  been true since at least v0.50.14, but only became a real "hrp does not match bech32 prefix:
+  expected 'cosmos' got 'lcv'" failure once SDK v0.53 started resolving *every* message's
+  signers exclusively through that address-codec path (v0.50.x's signer resolution had another
+  path that didn't always need it). Fixed by switching every call site to
+  `simtestutil.BuildSimulationOperations(bApp, bApp.AppCodec(), config, bApp.TxConfig())`,
+  which takes the app's own (correctly "lcv"-prefixed) tx config instead of building a throwaway
+  one. Confirmed clean on `TestAppSimulationAfterImport` (50 blocks) and a 100-block
+  `BenchmarkSimulation`, both exercising wasmd's own `MsgStoreCode`/`MsgInstantiateContract`/
+  `MsgExecuteContract` simulation operations successfully.
+- **wasmd's keeper needs its own on-disk wasmvm cache directory per running app instance** —
+  it takes an exclusive file lock on `<home>/wasm`. Two app instances in the same test process
+  sharing one `FlagHome` (a pre-existing pattern in `sim_test.go`'s import/export and
+  determinism tests, harmless before wasmd) now deadlock on that lock; fixed by giving each
+  app instance in those tests its own unique temp directory, matching wasmd's own `sim_test.go`
+  (which documents the exact same issue: https://github.com/CosmWasm/wasmd/issues/2017). The
+  same fix was needed in `cmd/lcvd/cmd/root.go`'s throwaway app instance (used only to read
+  back AutoCLI/codec info) — it now uses `os.MkdirTemp` + `simtestutil.NewAppOptionsWithFlagHome`
+  instead of `simtestutil.EmptyAppOptions{}`, which resolves to no home directory at all and
+  crashed wasmd's keeper trying to create `/wasm` at the filesystem root.
+
+**Net effect:** `x/emission`, `x/feemarket`, `x/identity`, `x/registry`, `x/voting`,
+`x/taxrail` — every custom module from Phases A–C — needed no logic changes at all; only their
+manual keeper-construction call sites moved from `ModuleInputs`/depinject to plain arguments in
+`app.go`. Full build, `go vet`, the full test suite, and a 100-block simulation are all
+confirmed clean on the new stack before wiring in wasm's actual params (see below) or starting
+the EVM half of Phase D.
+
+## 2026-08-02 — CosmWasm code upload is gov-gated via a custom `DefaultGenesis` override
+
+wasmd's stock `x/wasm` `AppModuleBasic.DefaultGenesis` defaults to fully permissionless code
+upload (`AccessTypeEverybody`), which doesn't match the top-level spec's "permissioned upload
+at genesis (gov-gated code upload), permissionless instantiate of approved code IDs." Since
+`genutilcli.InitCmd` (used by `lcvd init`) calls `DefaultGenesis` on whatever
+`module.BasicManager` it's given, and wasmd doesn't expose a way to pass different default
+params into its `AppModuleBasic`, `app/app.go` defines `wasmAppModuleBasic` — a thin wrapper
+embedding `wasm.AppModuleBasic` that overrides only `DefaultGenesis` to set
+`CodeUploadAccess: AccessTypeAnyOfAddresses.With(govAddress)` and
+`InstantiateDefaultPermission: AccessTypeEverybody`, then registers that wrapper in
+`BasicModuleManager`'s override map (the same mechanism already used for `genutil`/`gov`).
+Verified against a live local node: `lcvd init` produces the expected `genesis.json`, and
+`lcvd tx wasm store` from a funded non-gov key fails with `can not create code: unauthorized`.
+See [modules/wasm/SPEC.md](modules/wasm/SPEC.md).
+
 ## 2026-08-01 — Feemarket's mandatory base fee needed a simulation-only genesis override to unblock Phase C's 100-block acceptance run
 
 Verifying Phase C's "simulations run clean for 100 blocks" acceptance criterion via

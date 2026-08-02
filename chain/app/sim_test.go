@@ -99,7 +99,7 @@ func BenchmarkSimulation(b *testing.B) {
 		bApp.BaseApp,
 		simtestutil.AppStateFn(bApp.AppCodec(), bApp.SimulationManager(), bApp.DefaultGenesis()),
 		simulationtypes.RandomAccounts,
-		simtestutil.SimulationOperations(bApp, bApp.AppCodec(), config),
+		simtestutil.BuildSimulationOperations(bApp, bApp.AppCodec(), config, bApp.TxConfig()),
 		app.BlockedAddresses(),
 		config,
 		bApp.AppCodec(),
@@ -145,7 +145,7 @@ func TestAppImportExport(t *testing.T) {
 		bApp.BaseApp,
 		simtestutil.AppStateFn(bApp.AppCodec(), bApp.SimulationManager(), bApp.DefaultGenesis()),
 		simulationtypes.RandomAccounts,
-		simtestutil.SimulationOperations(bApp, bApp.AppCodec(), config),
+		simtestutil.BuildSimulationOperations(bApp, bApp.AppCodec(), config, bApp.TxConfig()),
 		app.BlockedAddresses(),
 		config,
 		bApp.AppCodec(),
@@ -175,7 +175,16 @@ func TestAppImportExport(t *testing.T) {
 		require.NoError(t, os.RemoveAll(newDir))
 	}()
 
-	newApp, err := app.New(log.NewNopLogger(), newDB, nil, true, appOptions, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
+	// A distinct FlagHome (not the shared appOptions used by bApp) is
+	// required here: wasmd's keeper takes an exclusive file lock on
+	// <home>/wasm for its wasmvm cache, and bApp is still open at this
+	// point in the test, so reusing its home directory would deadlock on
+	// that lock rather than actually testing import.
+	newAppOptions := make(simtestutil.AppOptionsMap, 0)
+	newAppOptions[flags.FlagHome] = newDir
+	newAppOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
+
+	newApp, err := app.New(log.NewNopLogger(), newDB, nil, true, newAppOptions, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
 	require.NoError(t, err)
 	require.Equal(t, app.Name, newApp.Name())
 
@@ -268,7 +277,7 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		bApp.BaseApp,
 		simtestutil.AppStateFn(bApp.AppCodec(), bApp.SimulationManager(), bApp.DefaultGenesis()),
 		simulationtypes.RandomAccounts,
-		simtestutil.SimulationOperations(bApp, bApp.AppCodec(), config),
+		simtestutil.BuildSimulationOperations(bApp, bApp.AppCodec(), config, bApp.TxConfig()),
 		app.BlockedAddresses(),
 		config,
 		bApp.AppCodec(),
@@ -303,7 +312,16 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		require.NoError(t, os.RemoveAll(newDir))
 	}()
 
-	newApp, err := app.New(log.NewNopLogger(), newDB, nil, true, appOptions, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
+	// A distinct FlagHome (not the shared appOptions used by bApp) is
+	// required here: wasmd's keeper takes an exclusive file lock on
+	// <home>/wasm for its wasmvm cache, and bApp is still open at this
+	// point in the test, so reusing its home directory would deadlock on
+	// that lock rather than actually testing import.
+	newAppOptions := make(simtestutil.AppOptionsMap, 0)
+	newAppOptions[flags.FlagHome] = newDir
+	newAppOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
+
+	newApp, err := app.New(log.NewNopLogger(), newDB, nil, true, newAppOptions, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
 	require.NoError(t, err)
 	require.Equal(t, app.Name, newApp.Name())
 
@@ -319,7 +337,7 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		newApp.BaseApp,
 		simtestutil.AppStateFn(bApp.AppCodec(), bApp.SimulationManager(), bApp.DefaultGenesis()),
 		simulationtypes.RandomAccounts,
-		simtestutil.SimulationOperations(newApp, newApp.AppCodec(), config),
+		simtestutil.BuildSimulationOperations(newApp, newApp.AppCodec(), config, newApp.TxConfig()),
 		app.BlockedAddresses(),
 		config,
 		bApp.AppCodec(),
@@ -379,6 +397,10 @@ func TestAppStateDeterminism(t *testing.T) {
 			}
 
 			db := dbm.NewMemDB()
+			// Each iteration needs its own FlagHome: wasmd's keeper holds an
+			// exclusive file lock on <home>/wasm for its wasmvm cache, and
+			// nothing in this loop closes the previous iteration's app.
+			appOptions.SetDefault(flags.FlagHome, t.TempDir())
 			bApp, err := app.New(
 				logger,
 				db,
@@ -405,7 +427,7 @@ func TestAppStateDeterminism(t *testing.T) {
 					bApp.DefaultGenesis(),
 				),
 				simulationtypes.RandomAccounts,
-				simtestutil.SimulationOperations(bApp, bApp.AppCodec(), config),
+				simtestutil.BuildSimulationOperations(bApp, bApp.AppCodec(), config, bApp.TxConfig()),
 				app.BlockedAddresses(),
 				config,
 				bApp.AppCodec(),

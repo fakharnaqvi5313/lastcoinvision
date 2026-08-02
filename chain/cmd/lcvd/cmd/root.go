@@ -4,48 +4,58 @@ import (
 	"os"
 	"strings"
 
-	"cosmossdk.io/client/v2/autocli"
-	"cosmossdk.io/depinject"
 	"cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/codec"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/cosmos/cosmos-sdk/types/module"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtxconfig "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
+
 	"github.com/lastcoinvision/lcv/app"
 )
 
 // NewRootCmd creates a new root command for lcvd. It is called once in the main function.
+//
+// The chain is no longer wired via depinject/appconfig (see DECISIONS.md):
+// wasmd and cosmos/evm both ship as traditionally-wired modules, so app.New
+// builds a plain *baseapp.BaseApp directly. A throwaway in-memory app
+// instance is built here purely to read back its already-configured codec,
+// tx config, and AutoCLI options, matching the pattern every wasmd/cosmos-evm
+// chain uses for this same reason.
 func NewRootCmd() *cobra.Command {
-	var (
-		autoCliOpts        autocli.AppOptions
-		moduleBasicManager module.BasicManager
-		clientCtx          client.Context
-	)
-
-	if err := depinject.Inject(
-		depinject.Configs(app.AppConfig(),
-			depinject.Supply(
-				log.NewNopLogger(),
-			),
-			depinject.Provide(
-				ProvideClientContext,
-			),
-		),
-		&autoCliOpts,
-		&moduleBasicManager,
-		&clientCtx,
-	); err != nil {
+	// wasmd's keeper always opens a real wasmvm cache directory on disk
+	// (even for a throwaway app never used to run anything), so — exactly
+	// like wasmd's own cmd/wasmd/root.go — this needs a real temp home
+	// directory, not simtestutil.EmptyAppOptions{}'s empty one, which
+	// wasmkeeper would try to use to create a directory at the filesystem
+	// root. See https://github.com/CosmWasm/wasmd/issues/2017.
+	tempDir, err := os.MkdirTemp("", app.Name+"-tempapp")
+	if err != nil {
 		panic(err)
 	}
+	defer os.RemoveAll(tempDir)
+
+	tempApp, err := app.New(log.NewNopLogger(), dbm.NewMemDB(), nil, false, simtestutil.NewAppOptionsWithFlagHome(tempDir))
+	if err != nil {
+		panic(err)
+	}
+
+	clientCtx := client.Context{}.
+		WithCodec(tempApp.AppCodec()).
+		WithInterfaceRegistry(tempApp.InterfaceRegistry()).
+		WithTxConfig(tempApp.TxConfig()).
+		WithLegacyAmino(tempApp.LegacyAmino()).
+		WithInput(os.Stdin).
+		WithAccountRetriever(types.AccountRetriever{}).
+		WithHomeDir(app.DefaultNodeHome).
+		WithViper(app.Name) // env variable prefix
 
 	rootCmd := &cobra.Command{
 		Use:           app.Name + "d",
@@ -56,7 +66,7 @@ func NewRootCmd() *cobra.Command {
 			cmd.SetOut(cmd.OutOrStdout())
 			cmd.SetErr(cmd.ErrOrStderr())
 
-			clientCtx = clientCtx.WithCmdContext(cmd.Context())
+			clientCtx := clientCtx.WithCmdContext(cmd.Context())
 			clientCtx, err := client.ReadPersistentCommandFlags(clientCtx, cmd.Flags())
 			if err != nil {
 				return err
@@ -65,6 +75,17 @@ func NewRootCmd() *cobra.Command {
 			clientCtx, err = config.ReadFromClientConfig(clientCtx)
 			if err != nil {
 				return err
+			}
+
+			if !clientCtx.Offline {
+				txConfigOpts := authtx.ConfigOptions{
+					TextualCoinMetadataQueryFn: authtxconfig.NewGRPCCoinMetadataQueryFn(clientCtx),
+				}
+				txConfig, err := authtx.NewTxConfigWithOptions(clientCtx.Codec, txConfigOpts)
+				if err != nil {
+					return err
+				}
+				clientCtx = clientCtx.WithTxConfig(txConfig)
 			}
 
 			if err := client.SetCmdClientContextHandler(clientCtx, cmd); err != nil {
@@ -78,22 +99,15 @@ func NewRootCmd() *cobra.Command {
 		},
 	}
 
-	// Since the IBC modules don't support dependency injection, we need to
-	// manually register the modules on the client side.
-	// This needs to be removed after IBC supports App Wiring.
-	ibcModules := app.RegisterIBC(clientCtx.InterfaceRegistry)
-	for name, mod := range ibcModules {
-		moduleBasicManager[name] = module.CoreAppModuleBasicAdaptor(name, mod)
-		autoCliOpts.Modules[name] = mod
-	}
-
-	initRootCmd(rootCmd, clientCtx.TxConfig, moduleBasicManager)
+	initRootCmd(rootCmd, tempApp.TxConfig(), tempApp.BasicModuleManager)
 
 	overwriteFlagDefaults(rootCmd, map[string]string{
 		flags.FlagChainID:        strings.ReplaceAll(app.Name, "-", ""),
 		flags.FlagKeyringBackend: "test",
 	})
 
+	autoCliOpts := tempApp.AutoCliOpts()
+	autoCliOpts.ClientCtx = clientCtx
 	if err := autoCliOpts.EnhanceRootCommand(rootCmd); err != nil {
 		panic(err)
 	}
@@ -115,33 +129,4 @@ func overwriteFlagDefaults(c *cobra.Command, defaults map[string]string) {
 	for _, c := range c.Commands() {
 		overwriteFlagDefaults(c, defaults)
 	}
-}
-
-func ProvideClientContext(
-	appCodec codec.Codec,
-	interfaceRegistry codectypes.InterfaceRegistry,
-	txConfigOpts tx.ConfigOptions,
-	legacyAmino *codec.LegacyAmino,
-) client.Context {
-	clientCtx := client.Context{}.
-		WithCodec(appCodec).
-		WithInterfaceRegistry(interfaceRegistry).
-		WithLegacyAmino(legacyAmino).
-		WithInput(os.Stdin).
-		WithAccountRetriever(types.AccountRetriever{}).
-		WithHomeDir(app.DefaultNodeHome).
-		WithViper(app.Name) // env variable prefix
-
-	// Read the config again to overwrite the default values with the values from the config file
-	clientCtx, _ = config.ReadFromClientConfig(clientCtx)
-
-	// textual is enabled by default, we need to re-create the tx config grpc instead of bank keeper.
-	txConfigOpts.TextualCoinMetadataQueryFn = authtxconfig.NewGRPCCoinMetadataQueryFn(clientCtx)
-	txConfig, err := tx.NewTxConfigWithOptions(clientCtx.Codec, txConfigOpts)
-	if err != nil {
-		panic(err)
-	}
-	clientCtx = clientCtx.WithTxConfig(txConfig)
-
-	return clientCtx
 }
