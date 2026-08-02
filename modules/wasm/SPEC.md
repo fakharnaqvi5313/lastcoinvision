@@ -61,6 +61,31 @@ See [contracts/cosmwasm/](../../contracts/cosmwasm/) for `consent-registry` and
 `procurement-ledger`, and [modules/evm/SPEC.md](../evm/SPEC.md) / the Solidity contracts in
 [contracts/solidity/](../../contracts/solidity/) for the EVM side of Phase D.
 
+## Reference contracts and a real build toolchain gap
+
+[contracts/cosmwasm/](../../contracts/cosmwasm/) has `consent-registry` (healthcare consent +
+access log) and `procurement-ledger` (multi-party procurement workflow state machine) — see
+each crate's own doc comments and `contracts/cosmwasm/build.sh`.
+
+**Building CosmWasm contracts on a current Rust toolchain requires a `wasm-opt`
+post-processing step**, found live: `wasm32-unknown-unknown`'s prebuilt standard library (as
+shipped by this toolchain) defaults to emitting WASM bulk-memory instructions
+(`memory.copy`/`memory.fill`), which wasmvm's static validator rejects outright ("bulk memory
+support is not enabled") — confirmed via a failed `MsgStoreCode` governance proposal on a live
+local devnet. A per-crate `-C target-feature=-bulk-memory` rustflag
+(`contracts/cosmwasm/.cargo/config.toml`) only affects code this workspace's own crates emit,
+not the prebuilt `core`/`std` libraries the toolchain ships — so it isn't sufficient alone.
+`contracts/cosmwasm/build.sh` runs `wasm-opt --enable-bulk-memory
+--llvm-memory-copy-fill-lowering` (from [binaryen](https://github.com/WebAssembly/binaryen))
+on the compiled output as a required last step, converting those instructions back to
+WASM-MVP-compatible equivalents. **Verified end-to-end against a live local devnet:** both
+contracts' bulk-memory-lowered bytecode passed a real gov-gated `MsgStoreCode` proposal
+(vote passed, code stored, `instantiate_permission: Everybody` confirmed), both instantiated
+permissionlessly, and both were exercised with real state-changing messages
+(`consent-registry`'s `GrantConsent`/`RecordAccess` and its `ConsentStatus`/`AccessLog`
+queries; `procurement-ledger`'s full `CreateProcurement` → `Approve` → `OpenForBids` sequence)
+— all producing correct on-chain state.
+
 ## Limitations
 
 - **Governance proposal turnaround for every new code upload.** There is no fast path (e.g. a

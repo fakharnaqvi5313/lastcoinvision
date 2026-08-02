@@ -2,6 +2,38 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-03 — CosmWasm contracts need a `wasm-opt` post-processing step on this Rust toolchain
+
+Completing Phase D's reference contracts (`contracts/cosmwasm/consent-registry`,
+`contracts/cosmwasm/procurement-ledger`). Both compiled and unit-tested cleanly, but the
+resulting `.wasm` bytecode was rejected by a real, live governance `MsgStoreCode` proposal on
+a local devnet: `Error during static Wasm validation: ... "bulk memory support is not enabled"`.
+
+Root cause: this toolchain's `wasm32-unknown-unknown` target ships prebuilt `core`/`std`
+libraries that emit WASM bulk-memory instructions (`memory.copy`/`memory.fill`) by default —
+wasmvm's static validator (bundled with wasmd) doesn't accept them. A per-crate
+`-C target-feature=-bulk-memory` rustflag (`contracts/cosmwasm/.cargo/config.toml`) only
+affects code the workspace's own crates emit, not the prebuilt standard-library code already
+compiled into the shipped toolchain — so it alone wasn't enough; the same governance proposal
+failed a second time with byte-for-byte identical output before this was understood.
+
+**Decision:** `contracts/cosmwasm/build.sh` runs `wasm-opt --enable-bulk-memory
+--llvm-memory-copy-fill-lowering` (binaryen) on the compiled output as a required last step,
+lowering those instructions back to WASM-MVP-compatible equivalents. Confirmed working
+end-to-end: the lowered bytecode passed a real `MsgStoreCode` governance proposal, both
+contracts instantiated permissionlessly per the existing gov-gated-upload policy, and both
+were exercised with real state-changing messages against a live local devnet. This is a
+toolchain/build-environment issue, not a design choice specific to either contract — every
+CosmWasm contract built on a similarly recent Rust toolchain needs this same step.
+
+## 2026-08-03 — Solidity contracts (Foundry) and CosmWasm build tooling: gitignore additions
+
+`contracts/solidity/lib/` (forge-std, fetched via `forge install`, ~1.3MB of vendored source)
+and `contracts/solidity/cache/` follow the same convention as `node_modules/`/`target/`
+elsewhere in this repo — installed on demand, not committed.
+`contracts/cosmwasm/*/artifacts/` (the `wasm-opt`-processed build output, see above) is
+likewise a build product, not source.
+
 ## 2026-08-02 — cosmos/evm integration: two fee markets, a module rename, and three genesis bugs found only by actually running a node
 
 Completing Phase D's EVM half on top of the wasmd milestone (same day). Full design rationale

@@ -21,6 +21,14 @@ target/
 Cargo.lock
 !/contracts/**/Cargo.lock
 
+# CosmWasm build output (see contracts/cosmwasm/build.sh)
+/contracts/cosmwasm/**/artifacts/
+
+# Foundry
+/contracts/solidity/cache/
+/contracts/solidity/lib/
+/contracts/solidity/broadcast/
+
 # Devnet / local chain data
 **/.lcvd/
 deploy/docker-compose/data/

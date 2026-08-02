@@ -1,0 +1,14 @@
+[target.wasm32-unknown-unknown]
+rustflags = [
+  # Newer rust-lld defaults to erroring on unresolved symbols; CosmWasm's
+  # host functions (db_read, addr_validate, secp256k1_verify, etc.) are
+  # meant to stay unresolved at compile time and be supplied by the
+  # running WASM VM (wasmvm) at instantiation — this restores that.
+  "-C", "link-arg=--allow-undefined",
+  # This toolchain's wasm32-unknown-unknown target enables the WASM
+  # bulk-memory proposal by default; wasmvm's static validator (bundled
+  # with wasmd) rejects bytecode using it ("bulk memory support is not
+  # enabled"), confirmed live via a failed MsgStoreCode governance
+  # proposal. Disabling it here matches what wasmvm actually accepts.
+  "-C", "target-feature=-bulk-memory",
+]

@@ -157,6 +157,15 @@ any EVM contract read (and, via the ICS-20/bank precompiles' write paths, move) 
 bank balances for any denom, `ulcv` included, without needing a separate wrapped-token
 contract. `evmtypes.DefaultPreinstalls` (e.g. a standard `Create2` deployer) are enabled too.
 
+## Hardhat compatibility
+
+Verified live: an unmodified, standard Hardhat config (`solidity`, a `networks.devnet.url`
+pointed at `:8545`, and an `accounts` private key — no chain-specific plugins or patches)
+successfully deployed `contracts/solidity/src/LCVEscrow.sol` via `npx hardhat run
+scripts/deploy.js --network devnet` and called a state-changing method on it afterward,
+against a fresh local devnet. Deployed bytecode was independently confirmed present on-chain
+via `eth_getCode`.
+
 ## Limitations
 
 - **No WERC20 (wrapped-native-token) precompile registered.** cosmos/evm supports deploying a
@@ -176,3 +185,10 @@ contract. `evmtypes.DefaultPreinstalls` (e.g. a standard `Create2` deployer) are
   callbacks; CosmWasm contracts still do. Revisit with a multiplexing contract-keeper wrapper
   if EVM-side IBC callback support becomes a real requirement.
 - **EVM chain id (2611) is a devnet/testnet placeholder** — see "EVM chain ID" above.
+- **The experimental EVM mempool (`evmmempool.NewExperimentalEVMMempool`) may stall block
+  production after a rejected broadcast.** Observed once live: after a transaction was
+  rejected for a nonce mismatch, the devnet's block height stopped advancing entirely (while
+  the process kept running and consuming CPU) until restarted with fresh state. Not yet
+  root-caused or reliably reproduced on demand; flagged as a follow-up rather than fixed here.
+  A fresh devnet instance was unaffected and is what the Hardhat/MetaMask verifications above
+  were run against.
