@@ -1,0 +1,48 @@
+export const metadata = {
+  title: "Identity without the data",
+  description: "How x/identity anchors credential hashes and account tiers on-chain without ever storing personal data.",
+};
+
+# Identity without the data
+
+*August 3, 2026*
+
+Every government module on LCV — registry, voting, taxrail — needs some notion of "who is
+this account, and are they allowed to do this." `x/identity` is the module that answers that
+question, and the design constraint we started from was simple: **no personal data on-chain,
+ever.**
+
+## DIDs, not documents
+
+Every account can have a DID of the form `did:lcv:<address>` — created, updated, or
+deactivated with a signed message from that account. The DID document itself holds
+verification methods and service endpoints, the same shape as any W3C DID document. There's no
+name, date of birth, or document scan anywhere in it.
+
+## Credentials are hashes, not records
+
+Verifying something about a person — that they've passed a KYC check, that they hold a
+license, whatever the credential type — happens off-chain, by an issuer. What lands on-chain
+is a hash of that credential plus its revocation status, anchored by an issuer that governance
+explicitly authorized. If an issuer revokes a credential, its status flips on-chain
+immediately; anyone can check it, no one can read what it actually attested to beyond its
+declared type.
+
+## Tiers, derived, not stored
+
+An account's tier — `pseudonymous`, `attested`, or `institutional` — isn't a field someone
+sets. It's derived: an account is `attested` if and only if it holds a valid, unrevoked
+credential from an authorized issuer. Revoke the credential, the tier reverts automatically.
+This is the property other modules actually consume — `x/registry` requires both parties in a
+transfer to be `attested` or better, and each `x/voting` election declares which credential
+type its electorate needs.
+
+## What's next here
+
+Today, presenting a credential means a signature check against the registry — real, but not
+private in the strongest sense, since the verifier learns which specific credential you're
+presenting. There's a `ZKVerifier` interface already defined for selective-disclosure
+proofs — proving "I hold a credential of type X issued by Y" without revealing which specific
+credential — but its current implementation is an explicitly marked stub. That's the honest
+state of it: the interface exists so a real ZK proof system can be dropped in without changing
+every module that depends on it, but it isn't wired in yet.

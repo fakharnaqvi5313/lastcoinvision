@@ -420,3 +420,53 @@ should be scoped to specific known origins (or left disabled) rather than wide o
 who already has a devnet home generated before this fix should manually flip the same line in
 their existing `config/app.toml` and restart, since the script only patches new homes.
 
+## 2026-08-03 — `web/` ships one dynamic API route, not a pure static export
+
+The top-level spec calls the website "static-exportable," but the `/governments` page's
+pilot-program contact form needs a real server-side handler to validate and log submissions
+(`app/api/contact/route.ts`) — Next.js's `output: "export"` mode disallows POST route handlers
+entirely, since static export has no server to run them on.
+
+**Decision:** `next.config.mjs` does not set `output: "export"`. Every other page is fully
+static (confirmed via `next build`'s per-route output — everything except `/api/contact` is
+prerendered), so the site is static-exportable in the sense that matters: it deploys cleanly
+to any Next.js-capable host (Vercel, a Node server, etc.) with only the one contact-form route
+needing actual server execution. A deployment that truly requires 100% static hosting (e.g.
+plain S3/CDN with no compute) would need to swap that one route for an external form
+endpoint — not attempted here, since no such constraint was given.
+
+## 2026-08-03 — Navy hex: spec's `#1F4E79` vs. the master logo's `#0E2640`
+
+The top-level spec's brand direction gives an explicit hex for "deep navy" (`#1F4E79`), but
+the master logo committed earlier (`brand/lcv-logo.png`, see the 2026-08-01 entry) uses a
+darker navy (`#0E2640`) for its disc background, and its own README explicitly deferred
+reconciling this to Phase F.
+
+**Decision:** both hexes are kept, as adjacent steps in one navy scale (`#1F4E79` as
+`navy-500`, `#0E2640` as `navy-900`) rather than picking one over the other — `navy-500` for
+primary UI elements (buttons, links), `navy-900` for dark backgrounds and the logo itself.
+This is stated explicitly on the `/brand` page rather than silently choosing one hex and
+hoping no one notices the logo doesn't match it.
+
+## 2026-08-03 — Roadmap uses phase status, not calendar dates
+
+The spec asks for a "roadmap timeline." Real ship/target dates for phases G–I aren't something
+this session can commit to on the project's behalf.
+
+**Decision:** `/roadmap` and the homepage's roadmap section track the project's actual build
+phases (A–I) with a status of shipped / in-progress / planned, derived from what's actually
+been built and verified in this repo — no calendar dates. Revisit if real target dates are
+ever decided outside of this session.
+
+## 2026-08-03 — Verified `web/` with a real Lighthouse run, not an assumed score
+
+Ran `lighthouse` (real Chrome, headless) against every page of the built site locally rather
+than assuming it would pass the spec's "Lighthouse ≥90 on all categories" bar. First pass
+found two genuine issues: several muted-text color combinations (`.eyebrow`, footer captions,
+a few small labels) had light-mode-only or backwards light/dark contrast pairings that failed
+WCAG's 4.5:1 for normal text (as low as 2.62:1), and the roadmap timeline's item headings used
+`<h3>` where the surrounding page had no `<h2>`, tripping axe's heading-order check on
+`/roadmap`. Both were fixed (contrast: darkened the affected light-mode text colors;
+heading-order: item titles are now `<h2>`) and re-verified — every page now scores 100 on
+accessibility and SEO, and ≥94 on performance and best-practices.
+

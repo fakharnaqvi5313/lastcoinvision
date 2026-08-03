@@ -1,0 +1,60 @@
+export const metadata = {
+  title: "Introducing LastcoinVision",
+  description:
+    "What's actually been built so far: chain, identity, government modules, smart contracts, and a developer platform.",
+};
+
+# Introducing LastcoinVision
+
+*August 3, 2026*
+
+LastcoinVision (LCV) is a Cosmos SDK Layer-1 built for a specific pair of audiences:
+governments that need auditable infrastructure for voting, tax, land registry, and identity,
+and the developers who build on top of it. This post is a straightforward account of what's
+actually running today — not a pitch.
+
+## The chain
+
+LCV is a standard Cosmos SDK application (`lcvd`) on CometBFT consensus, with IBC enabled.
+Total supply is fixed at 10,000,000,000 LCV, allocated at genesis across ecosystem grants,
+foundation treasury, team and investor vesting accounts, a staking-rewards pool, and public
+and community allocations. There is no open-ended inflation — staking rewards are paid out of
+that fixed pool on a ten-year decaying emission curve. Transaction fees follow an
+EIP-1559-style dynamic base fee with a governance-tunable burn.
+
+## Government modules
+
+Three custom modules exist specifically for government use cases:
+
+- **x/registry** — a non-fungible asset registry for land and other titled assets, with full
+  transfer history and jurisdiction-authority freeze powers.
+- **x/voting** — eligibility-gated elections using a commit-reveal scheme, so anyone can
+  recompute a tally from public on-chain data. (More on what this does and doesn't guarantee
+  in the [next post](/blog/why-commit-reveal-voting).)
+- **x/taxrail** — atomic split-payment transfers that route a jurisdiction's tax share to a
+  transparent treasury in the same transaction as the transfer itself.
+
+All three sit on top of **x/identity**, which anchors W3C-style DIDs and credential hashes —
+never the underlying personal data — so other modules can gate access on a verified account
+tier without the chain ever holding anything sensitive.
+
+## Smart contracts, for everything else
+
+Governments aren't the only intended users. LCV also runs CosmWasm (governance-gated code
+upload, permissionless instantiate) and an Ethereum-JSON-RPC-compatible EVM with a native
+two-way bridge to the Cosmos-side balance. Reference contracts exist for both — escrow,
+invoice factoring, healthcare consent registries, procurement workflows — as a starting point
+for ERPs, commerce platforms, and other applications that don't need a custom module.
+
+## For developers
+
+`@lastcoinvision/sdk` gives typed clients for every custom module plus Keplr and MetaMask
+wallet helpers, and `npx create-lcv-app` scaffolds a working dApp against a local devnet in
+one command. See the [developers page](/developers) to get started.
+
+## What's next
+
+This is testnet/devnet software: no independent security audit has happened, and there's no
+production network. The [roadmap](/roadmap) tracks what's built, what's in progress, and
+what's still planned — including the documentation site, public testnet infrastructure, and
+the security review that has to happen before any of this is production-ready.

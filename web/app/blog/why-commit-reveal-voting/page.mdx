@@ -1,0 +1,51 @@
+export const metadata = {
+  title: "Why commit-reveal voting (for now)",
+  description:
+    "x/voting is verifiable today and not ballot-secret yet — an honest look at what that means and what a production system needs.",
+};
+
+# Why commit-reveal voting (for now)
+
+*August 3, 2026*
+
+`x/voting` is the module we're most careful talking about, because it's the easiest one to
+misrepresent. Here's exactly what it does, what it doesn't, and why.
+
+## What it does
+
+An election has a registration window, a voting window, and a reveal window. Eligibility is
+gated on a credential type defined per election — you need a matching, unrevoked credential
+from `x/identity` to register. During the voting window, you submit a *commitment*: a hash of
+your choice and a secret salt, not the choice itself. After voting closes, you submit a
+*reveal*: the actual choice and salt, which the chain checks against your earlier commitment
+before counting it.
+
+The result is a tally anyone can independently recompute from public chain data. There's no
+black box, no trusted counting authority, no "trust us." That's a real, meaningful property —
+most real-world electronic voting systems can't offer it.
+
+## What it doesn't do
+
+Ballot secrecy, in the sense a real election needs, is a different property from
+verifiability, and commit-reveal alone doesn't provide it. During the reveal window, your vote
+becomes visible on-chain, and — depending on how reveals are submitted — it can potentially be
+linked back to your account. A system with real ballot secrecy needs something more: threshold
+encryption so no single party (including validators) can decrypt votes before tallying, and
+typically zero-knowledge nullifiers so a vote can be proven valid and counted exactly once
+without ever revealing which registered voter cast it.
+
+Neither of those is implemented here. This is stated plainly in `modules/voting/SPEC.md`'s
+limitations section, and it's worth repeating on the public web page anyone might land on:
+**do not use this for an election where ballot secrecy is a legal or ethical requirement.**
+
+## Why ship it this way
+
+Commit-reveal is a real, useful primitive on its own — for low-stakes polls, internal
+governance votes, or any process where verifiability matters more than secrecy, it's already
+sufficient. It's also a substrate a ZK/threshold-encryption layer can be built on top of later
+without changing the module's external shape. Shipping something honestly scoped now, with the
+gap clearly documented, seemed better than either not shipping a voting module at all or
+overselling what it currently guarantees.
+
+If you're evaluating this for a real election, the answer today is: not yet, and we'll say so
+directly rather than let the word "blockchain voting" do the talking.
