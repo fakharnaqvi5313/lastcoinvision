@@ -45,7 +45,8 @@ for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
   rpc_port=$((26657 + i * 10))
   api_port=$((1317 + i * 10))
   grpc_port=$((9090 + i * 10))
-  echo "  validator$i: RPC http://localhost:${rpc_port}  API http://localhost:${api_port}  gRPC localhost:${grpc_port}"
+  evm_rpc_port=$((8545 + i * 10))
+  echo "  validator$i: RPC http://localhost:${rpc_port}  API http://localhost:${api_port}  gRPC localhost:${grpc_port}  EVM http://localhost:${evm_rpc_port}"
 done
 echo
 echo "Example: $LCVD_BIN status --home $OUTPUT_DIR/validator0 | head -c 400"

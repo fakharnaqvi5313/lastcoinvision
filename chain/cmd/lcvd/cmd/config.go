@@ -39,10 +39,19 @@ func initAppConfig() (string, interface{}) {
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = app.EVMChainID
 
+	// cosmos/evm's own DefaultJSONRPCConfig() ships with Enable: false
+	// despite its doc comment claiming otherwise — flip it on so a fresh
+	// `lcvd init` gets a working :8545 out of the box, matching this
+	// chain's EVM-compatibility as a headline feature (see
+	// modules/evm/SPEC.md) rather than requiring every operator to
+	// discover and pass --json-rpc.enable themselves.
+	jsonRPCCfg := cosmosevmserverconfig.DefaultJSONRPCConfig()
+	jsonRPCCfg.Enable = true
+
 	customAppConfig := evmconfig.EVMAppConfig{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
-		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		JSONRPC: *jsonRPCCfg,
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 

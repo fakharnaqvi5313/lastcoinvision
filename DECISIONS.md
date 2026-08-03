@@ -470,3 +470,99 @@ WCAG's 4.5:1 for normal text (as low as 2.62:1), and the roadmap timeline's item
 heading-order: item titles are now `<h2>`) and re-verified — every page now scores 100 on
 accessibility and SEO, and ≥94 on performance and best-practices.
 
+## 2026-08-03 — FIXED: `make devnet` was fundamentally broken (four bugs)
+
+Discovered while writing Phase G's "Run a node" tutorial and needing it to actually work
+against the project's own primary documented entry point. `make devnet` — the 4-validator
+local devnet every phase's acceptance criteria and the whole `README.md`/Makefile point to —
+has not actually come up successfully since some point in Phase D, across three independent
+bugs stacked on top of each other:
+
+1. **`scripts/genesis/init-genesis.sh` called `lcvd tendermint show-node-id`.** The Phase D
+   cosmos-sdk v0.50.14 → v0.53.6 upgrade (see the 2026-08-02 entry) renamed that subcommand to
+   `comet`. The call was piped through `2>/dev/null`, so it failed silently — `make devnet`
+   exited nonzero with no visible error at all, not even a stack trace, just "Error 1" from
+   Make itself.
+2. **`lcvd start` rejected every real chain-id.** `chain/cmd/lcvd/cmd/root.go` forced
+   `--chain-id`'s default to `"lcv"` (`app.Name`) across the *entire* command tree via
+   `overwriteFlagDefaults`, intending it as a convenience default for `tx`/`query`/`keys`. But
+   `--chain-id` is a single flag object shared by inheritance across the whole tree — there's
+   no way to default it only for client commands — and `start` needs it **empty** so
+   cosmos-sdk's server bootstrap falls back to reading the real chain-id from `genesis.json`.
+   With `"lcv"` forced, every `lcvd start` failed with `invalid chain-id on InitChain;
+   expected: lcv, got: lcv-devnet`, regardless of genesis being perfectly valid. This also
+   meant the "convenience default" was subtly wrong for `tx`/`query` too — it could never be
+   correct for any chain-id actually used anywhere in this project (`lcv-devnet`,
+   `lcv-testnet-1`, `lastcoinvision-1`).
+3. **`lcvd multi-node`-generated homes had no working EVM RPC or REST API.** `testnet_multi_node.go`
+   built its `app.toml` from bare `serverconfig.DefaultConfig()` and wrote it via the
+   package's default (non-EVM) template — entirely bypassing `initAppConfig()`'s EVM-aware
+   config that a plain `lcvd init` gets. The generated `app.toml` had no `[json-rpc]` section
+   at all, and explicitly set `API.Enable = false`. Every 4-validator devnet came up with no
+   REST API and no `:8545`, even though `scripts/devnet/start.sh`'s own banner claimed
+   `API http://localhost:1317` was live. Separately, cosmos/evm's own
+   `DefaultJSONRPCConfig()` ships `Enable: false` despite its doc comment claiming the
+   opposite — so even a plain `lcvd init` single node needed this fixed too.
+4. **5-second block times made this devnet's fast-gov config (30s voting period, from
+   `gengenesis --devnet-fast-gov`) unreliable in practice.** CometBFT's default
+   `timeout_commit` (5s — meant to give real, geographically distributed validators time to
+   gossip precommits) applies just as much to 4 local processes on localhost. A realistic
+   governance workflow (submit proposal, poll for inclusion, vote from 4 keys) easily used up
+   more than 30 seconds of wall-clock time at ~5s/block, causing votes to land after
+   `voting_end_time` and get silently discarded (`code: 0` from `lcvd tx gov vote`'s sync
+   broadcast reflects `CheckTx` passing, not `DeliverTx` succeeding — the actual failure only
+   shows up via `lcvd query tx <hash>`, as `1: inactive proposal`).
+
+**Decision:** fixed all four. (1) `comet show-node-id`, with the `2>/dev/null` also removed
+so a future regression fails loudly. (2) Removed the chain-id override entirely rather than
+trying to special-case it per-command (found and reverted one attempt at that — the flag is
+inherited by reference, not copied, so a subcommand-scoped reset was silently a no-op).
+`lcvd tx`/`query`/`keys` now require `--chain-id` explicitly, same as most cosmos-sdk chains'
+documented CLI usage — this is correct, not a regression. (3) `testnet_multi_node.go` now
+builds the same `evmconfig.EVMAppConfig` `initAppConfig()` does, calls
+`srvconfig.SetConfigTemplate` with the matching EVM template before writing, sets
+`API.Enable = true`, and assigns each validator a unique JSON-RPC port
+(`scripts/genesis/init-genesis.sh`'s per-validator port-patching loop now also shifts
+`[json-rpc]`'s `address`/`ws-address`, `scripts/devnet/start.sh`'s banner now prints the real
+EVM port per validator); `initAppConfig()` itself now also forces `JSONRPCConfig.Enable =
+true` for the single-node `lcvd init` path. (4) `scripts/genesis/init-genesis.sh`'s
+per-validator `config.toml` patching now also sets `timeout_commit = "1s"`, cutting block
+time roughly 5x for local iteration — not something to carry into a real testnet/mainnet
+`config.toml`, where the default exists for a real reason.
+
+Verified end-to-end after all four fixes: fresh `make devnet` produces 4 validators that
+reach consensus in ~1-2s blocks, and every Phase G tutorial's commands were run against it
+for real — a full `x/identity` issuer-authorization → credential-issuance → tier-check
+cycle, a full `x/voting` electoral-authority-authorization → election → register → commit →
+reveal → tally cycle (including discovering the exact `sha256(choice + "|" + salt)`
+commitment format the chain expects, undocumented anywhere until now), and a full
+`LCVEscrow.sol` deploy → fund → create → deposit → release cycle via Foundry against the EVM
+JSON-RPC endpoint.
+
+This should be treated as a significant finding, not a cosmetic fix: every prior phase's
+"verified against a live devnet" claims that used `make devnet` specifically (rather than a
+manually `lcvd init`'d single node with `--chain-id` passed explicitly, which sidesteps bug
+#2) would have hit at least one of these. Spot-checking suggests most Phase D/E verification
+used manual single-node setups instead, which is presumably why this went uncaught for so
+long.
+
+## 2026-08-03 — Docs site's module reference tolerates a few unresolvable links
+
+`docs/`'s Docusaurus config renders each `modules/*/SPEC.md` directly at `/modules/<name>`
+via a second `docs` plugin instance pointed at `../modules` (see the module-reference task in
+this phase) — the whole point being zero duplication, so the reference and the source can
+never drift apart. Those SPEC.md files also use GitHub-relative links like
+`../../DECISIONS.md` and `../../chain/x/identity`, which resolve correctly when viewed on
+GitHub (their primary context) but point outside `docs/`'s content root and can't resolve to
+any Docusaurus route.
+
+**Decision:** set `onBrokenLinks: "warn"` (Docusaurus's own default is `"throw"`, which would
+fail the build) rather than rewriting those links or duplicating the SPEC.md content with
+docs-site-specific links. The build output calls out exactly which links are unresolvable on
+every affected page — accepted as a known, cosmetic gap rather than something worth breaking
+the zero-duplication design for. Also had to fix one real MDX-compatibility bug found along
+the way: a multi-line inline code span containing `<`/`<=` in `modules/voting/SPEC.md`
+(`registration_start < registration_end <= ...`, split across a line wrap) confused MDX's
+JSX-aware tokenizer into a hard parse failure — reflowed so the span stays on one line, no
+content change.
+

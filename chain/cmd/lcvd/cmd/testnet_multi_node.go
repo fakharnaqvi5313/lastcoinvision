@@ -28,6 +28,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	"github.com/cosmos/cosmos-sdk/testutil"
+	evmconfig "github.com/cosmos/evm/config"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+	"github.com/lastcoinvision/lcv/app"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -174,9 +177,27 @@ func initTestnetFiles(
 	nodeIDs := make([]string, args.numValidators)
 	valPubKeys := make([]cryptotypes.PubKey, args.numValidators)
 
-	appConfig := srvconfig.DefaultConfig()
+	// Build the same EVM-aware config `lcvd init` gets (see initAppConfig in
+	// config.go) rather than a bare serverconfig.Config — otherwise the
+	// generated app.toml has no [json-rpc]/[evm]/[tls] sections at all, and
+	// `make devnet`'s validators silently come up with no EVM RPC. Register
+	// the matching template globally so WriteConfigFile below (which reads
+	// package-level state, not a per-call argument) renders those sections
+	// instead of panicking on the struct's extra fields going unrendered.
+	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
+	evmCfg.EVMChainID = app.EVMChainID
+	jsonRPCCfg := cosmosevmserverconfig.DefaultJSONRPCConfig()
+	jsonRPCCfg.Enable = true
+	srvconfig.SetConfigTemplate(evmconfig.EVMAppTemplate)
+
+	appConfig := &evmconfig.EVMAppConfig{
+		Config:  *srvconfig.DefaultConfig(),
+		EVM:     *evmCfg,
+		JSONRPC: *jsonRPCCfg,
+		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
+	}
 	appConfig.MinGasPrices = args.minGasPrices
-	appConfig.API.Enable = false
+	appConfig.API.Enable = true
 	appConfig.BaseConfig.MinGasPrices = "0.0001" + sdk.DefaultBondDenom
 	appConfig.Telemetry.EnableHostnameLabel = false
 	appConfig.Telemetry.Enabled = false
@@ -317,6 +338,8 @@ func initTestnetFiles(
 
 		appConfig.GRPC.Address = args.startingIPAddress + ":" + strconv.Itoa(9090-2*i)
 		appConfig.API.Address = "tcp://localhost:" + strconv.Itoa(1317-i)
+		appConfig.JSONRPC.Address = "127.0.0.1:" + strconv.Itoa(8545-10*i)
+		appConfig.JSONRPC.WsAddress = "127.0.0.1:" + strconv.Itoa(8546-10*i)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config", "app.toml"), appConfig)
 	}
 

@@ -83,7 +83,7 @@ echo "==> Assigning non-overlapping ports per node"
 # match the new P2P ports.
 declare -a NODE_IDS
 for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
-  NODE_IDS[$i]="$("$LCVD" tendermint show-node-id --home "$OUTPUT_DIR/validator$i" 2>/dev/null)"
+  NODE_IDS[$i]="$("$LCVD" comet show-node-id --home "$OUTPUT_DIR/validator$i")"
 done
 
 PERSISTENT_PEERS=""
@@ -102,16 +102,27 @@ for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
   pprof_port=$((6060 + i))
   grpc_port=$((9090 + i * 10))
   api_port=$((1317 + i * 10))
+  evm_rpc_port=$((8545 + i * 10))
+  evm_ws_port=$((8546 + i * 10))
 
   cfg="$dir/config/config.toml"
   sed_inplace "s#^laddr = \"tcp://0.0.0.0:[0-9]*\"#laddr = \"tcp://0.0.0.0:${p2p_port}\"#" "$cfg"
   sed_inplace "s#^laddr = \"tcp://127.0.0.1:[0-9]*\"#laddr = \"tcp://127.0.0.1:${rpc_port}\"#" "$cfg"
   sed_inplace "s#^pprof_laddr = \"localhost:[0-9]*\"#pprof_laddr = \"localhost:${pprof_port}\"#" "$cfg"
   sed_inplace "s#^persistent_peers = \".*\"#persistent_peers = \"${PERSISTENT_PEERS}\"#" "$cfg"
+  # CometBFT's default timeout_commit (5s) makes this local devnet feel
+  # sluggish for no reason — it exists to give real, geographically
+  # distributed validators time to gossip precommits, which doesn't apply
+  # to 4 processes on localhost. 1s keeps the devnet fast for iteration and
+  # gives fast-gov proposals (30s voting_period, see gengenesis
+  # --devnet-fast-gov) enough margin to actually pass within their window.
+  sed_inplace "s#^timeout_commit = \"5s\"#timeout_commit = \"1s\"#" "$cfg"
 
   app="$dir/config/app.toml"
   sed_inplace "s#^address = \"tcp://localhost:[0-9]*\"#address = \"tcp://localhost:${api_port}\"#" "$app"
   sed_inplace "s#^address = \"localhost:[0-9]*\"#address = \"localhost:${grpc_port}\"#" "$app"
+  sed_inplace "s#^address = \"127.0.0.1:[0-9]*\"#address = \"127.0.0.1:${evm_rpc_port}\"#" "$app"
+  sed_inplace "s#^ws-address = \"127.0.0.1:[0-9]*\"#ws-address = \"127.0.0.1:${evm_ws_port}\"#" "$app"
   # Browser-based dApps (the Phase E `create-lcv-app` templates included) call
   # the REST API directly from client-side JS, which the default
   # `enabled-unsafe-cors = false` blocks with no Access-Control-Allow-Origin

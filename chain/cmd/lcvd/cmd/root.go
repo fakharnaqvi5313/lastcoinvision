@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os"
-	"strings"
 
 	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
@@ -109,8 +108,19 @@ func NewRootCmd() *cobra.Command {
 
 	initRootCmd(rootCmd, tempApp.TxConfig(), tempApp.BasicModuleManager)
 
+	// NOTE: chain-id intentionally has no forced default here (unlike
+	// keyring-backend below). `--chain-id` is a single flag object shared
+	// by the whole command tree (registered once, inherited everywhere —
+	// there is no way to default it differently for `start` vs `tx`/
+	// `query`), and no non-empty default is actually safe to share: `start`
+	// needs it empty so cosmos-sdk's server bootstrap falls back to
+	// genesis.json's real chain-id (lcv-devnet, lcv-testnet-1,
+	// lastcoinvision-1 — never literally "lcv"), and forcing any one of
+	// those as a "convenience" for `tx`/`query` would silently produce
+	// invalid signatures against every other chain-id. A previous version
+	// of this defaulted chain-id to "lcv" (app.Name) here, which broke
+	// `lcvd start` outright — see the 2026-08-03 DECISIONS.md entry.
 	overwriteFlagDefaults(rootCmd, map[string]string{
-		flags.FlagChainID:        strings.ReplaceAll(app.Name, "-", ""),
 		flags.FlagKeyringBackend: "test",
 	})
 
