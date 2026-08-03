@@ -47,3 +47,6 @@ deploy/docker-compose/.devnet/
 
 # OS
 .DS_Store
+
+# Local editor/tooling config, never shared
+.claude/
