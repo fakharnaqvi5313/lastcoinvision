@@ -112,6 +112,12 @@ for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
   app="$dir/config/app.toml"
   sed_inplace "s#^address = \"tcp://localhost:[0-9]*\"#address = \"tcp://localhost:${api_port}\"#" "$app"
   sed_inplace "s#^address = \"localhost:[0-9]*\"#address = \"localhost:${grpc_port}\"#" "$app"
+  # Browser-based dApps (the Phase E `create-lcv-app` templates included) call
+  # the REST API directly from client-side JS, which the default
+  # `enabled-unsafe-cors = false` blocks with no Access-Control-Allow-Origin
+  # header at all. Safe here specifically because this is a local devnet,
+  # never a real testnet/mainnet config — see DECISIONS.md.
+  sed_inplace "s#^enabled-unsafe-cors = false#enabled-unsafe-cors = true#" "$app"
 done
 
 CANONICAL_GENESIS="$OUTPUT_DIR/validator0/config/genesis.json"

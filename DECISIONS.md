@@ -368,3 +368,55 @@ the whole time (confirmed via `query distribution validator-outstanding-rewards`
 edit the hardcoded rate directly to 10%/20%/1% (rate/max_rate/max_change_rate) — a plausible
 mainnet-ish default — rather than working around it downstream.
 
+## 2026-08-03 — OPEN BUG: `--gas auto` / CosmJS `"auto"` fee underestimates on every tx, chain-wide
+
+Discovered while building Phase E's SDK examples (a plain `MsgCreateDID` broadcast kept
+failing with `out of gas`). Root-caused down to: this is **not** specific to `x/identity` or
+to the SDK — a bare `lcvd tx bank send ... --gas auto --gas-adjustment 1.4` against a fresh
+single-node devnet also fails with code 11 (`out of gas in location: ReadFlat`/`WriteFlat`),
+`gas_used` exceeding `gas_wanted` despite the 1.4x adjustment already applied by the CLI
+itself. Raising `--gas-adjustment` does not converge the way it should: at 1.4x, real usage
+was ~41% over the raw (pre-adjustment) simulated estimate; at 3.0x, real usage was ~66% over
+the same raw estimate for the same tx. Real gas usage appears to scale with the tx's own
+requested gas limit rather than being fixed by the work the tx actually does — i.e. the CLI's
+`simulate` step (which runs before a real gas limit exists) is measuring something structurally
+different from what deliverTx charges, in a way that grows with whatever `--gas`/multiplier is
+picked. Not reproduced as a total failure — a large enough fixed multiplier (~3x) or a
+generously fixed manual `gas` value both work — but the *default* `--gas auto` (1.4x) flow that
+every `lcvd tx` invocation and every CosmJS `"auto"` fee relies on by default is unreliable
+for essentially any transaction on this chain, standard `x/bank` sends included. Not yet
+root-caused to a specific ante decorator; `ReadFlat`/`WriteFlat` are generic Cosmos SDK
+KVStore gas-config labels (from `store/types/gas.go`), not proof of which handler is
+responsible — `x/feemarket`'s partial-burn ante decorator (Phase A) is the prime suspect
+given the timing, but this needs an actual profiling pass, not just this observation, to
+confirm.
+
+**Decision:** do not attempt to root-cause or fix this from within Phase E — it is a Phase A/
+`x/feemarket` ante-handler concern and out of scope for the SDK/CLI/faucet work. Phase E's
+SDK examples, `create-lcv-app` templates, and faucet all use a fixed `StdFee` (manual `gas`
++ `amount`) instead of `"auto"`/`fee: "auto"` for any tx that goes through this chain's
+ante handlers, with a comment pointing back to this entry. This is a workaround, not a fix:
+real dApp developers using this SDK's default `"auto"` fee path will hit the same failure,
+so this should be treated as a release blocker for testnet, not a cosmetic issue — flagged
+here for prioritization rather than silently patched over.
+
+## 2026-08-03 — Enabled `enabled-unsafe-cors` in the devnet's `app.toml`
+
+Discovered while verifying Phase E's `gov-registry` and `voting-portal` `create-lcv-app`
+templates against a live devnet: browser `fetch()` calls to the REST/gRPC-gateway API failed
+with a generic "Failed to fetch" (no `Access-Control-Allow-Origin` header at all in the
+response), even though the exact same URL worked fine from `curl`. `scripts/genesis/
+init-genesis.sh` never touched CORS, so every devnet home was left at the Cosmos SDK's
+default `enabled-unsafe-cors = false` in `app.toml` — safe for a real network, but it also
+silently blocks every browser-based dApp (any of Phase E's Next.js templates, or any other
+CosmJS/fetch-based frontend) from calling the REST API directly, which is the normal,
+expected way these dApps talk to a chain.
+
+**Decision:** `scripts/genesis/init-genesis.sh` now flips `enabled-unsafe-cors` to `true` for
+every validator home it generates (chain/app/config.go's own account/API code is untouched —
+this is purely an `app.toml` value). This only affects `make devnet`-generated local
+networks; it is not something to carry into a real testnet or mainnet `app.toml`, where CORS
+should be scoped to specific known origins (or left disabled) rather than wide open. Anyone
+who already has a devnet home generated before this fix should manually flip the same line in
+their existing `config/app.toml` and restart, since the script only patches new homes.
+
