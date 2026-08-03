@@ -31,8 +31,8 @@ export function EmissionChart() {
             width={56}
           />
           <Tooltip
-            formatter={(value: number) => [`${Math.round(value).toLocaleString()} LCV`, "Cumulative emitted"]}
-            labelFormatter={(year: number) => `Year ${year}`}
+            formatter={(value) => [`${Math.round(Number(value)).toLocaleString()} LCV`, "Cumulative emitted"]}
+            labelFormatter={(year) => `Year ${year}`}
             contentStyle={{ borderRadius: 8, fontSize: 12 }}
           />
           <Area type="monotone" dataKey="cumulativeEmittedLcv" stroke="#0EEBFD" strokeWidth={2} fill="url(#emissionFill)" />

@@ -20,7 +20,7 @@ func (k Keeper) GetLastEmissionTime(ctx sdk.Context) (int64, bool) {
 	if bz == nil {
 		return 0, false
 	}
-	return int64(binary.BigEndian.Uint64(bz)), true
+	return int64(binary.BigEndian.Uint64(bz)), true // #nosec G115 -- unix seconds, nowhere near uint64/int64's boundary
 }
 
 // SetLastEmissionTime records the unix time (seconds) up to which staking
@@ -28,7 +28,7 @@ func (k Keeper) GetLastEmissionTime(ctx sdk.Context) (int64, bool) {
 func (k Keeper) SetLastEmissionTime(ctx sdk.Context, unixTime int64) {
 	store := runtime.KVStoreAdapter(k.storeService.OpenKVStore(ctx))
 	bz := make([]byte, 8)
-	binary.BigEndian.PutUint64(bz, uint64(unixTime))
+	binary.BigEndian.PutUint64(bz, uint64(unixTime)) // #nosec G115 -- unix seconds, never negative in practice
 	store.Set(types.LastEmissionTimeKey, bz)
 }
 

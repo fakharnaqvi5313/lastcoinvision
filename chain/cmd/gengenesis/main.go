@@ -327,7 +327,7 @@ func zeroInflationMintGenesis(cdc codec.Codec) json.RawMessage {
 func nextAccountNumber(cdc codec.Codec, accounts []*codectypes.Any) uint64 {
 	var maxNum uint64
 	for _, any := range accounts {
-		var acc authtypes.AccountI
+		var acc sdk.AccountI
 		if err := cdc.UnpackAny(any, &acc); err != nil {
 			exitf("unpacking existing genesis account: %v", err)
 		}

@@ -23,7 +23,12 @@ func (k Keeper) AdjustBaseFee(ctx sdk.Context) error {
 		return nil
 	}
 
-	gasUsed := int64(ctx.BlockGasMeter().GasConsumedToLimit())
+	// Unlike RequiredFee's gasWanted (a single tx's own uint64 field, fully
+	// attacker-controlled with no upstream bound — see the fix above and
+	// DECISIONS.md), GasConsumedToLimit is capped by the block gas limit
+	// consensus param across the whole block; reaching anywhere near
+	// int64's range would require a limit no real chain configures.
+	gasUsed := int64(ctx.BlockGasMeter().GasConsumedToLimit()) // #nosec G115
 	gasDelta := gasUsed - params.TargetGas
 
 	change := params.BaseFee.
@@ -48,7 +53,13 @@ func (k Keeper) AdjustBaseFee(ctx sdk.Context) error {
 // under-paying by a fractional unit is never possible.
 func (k Keeper) RequiredFee(ctx sdk.Context, gasWanted uint64) sdk.Coin {
 	params := k.GetParams(ctx)
-	amount := params.BaseFee.MulInt64(int64(gasWanted)).Ceil().TruncateInt()
+	// gasWanted comes straight from the tx (feeTx.GetGas() in
+	// x/feemarket/ante), so it must never go through an int64 cast: a
+	// gasWanted at or above 2^63 would wrap negative, making the required
+	// fee negative and letting any paid amount (including zero) satisfy
+	// the ante's paid.LT(required) check — a full fee-market bypass. Found
+	// by gosec (G115); see DECISIONS.md and AUDIT_SCOPE.md.
+	amount := params.BaseFee.MulInt(math.NewIntFromUint64(gasWanted)).Ceil().TruncateInt()
 	return sdk.NewCoin(params.FeeDenom, amount)
 }
 

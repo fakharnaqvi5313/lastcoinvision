@@ -199,8 +199,3 @@ func newEvmAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandler 
 		cosmosevmante.NewTxListenerDecorator(options.PendingTxListener),
 	)
 }
-
-func mustFeeMarketParams(options HandlerOptions) *interface {
-} {
-	return nil
-}

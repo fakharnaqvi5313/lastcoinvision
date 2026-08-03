@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"math"
 	"testing"
 
 	storetypes "cosmossdk.io/store/types"
@@ -84,4 +85,21 @@ func TestRequiredFeeAndBurnSplit(t *testing.T) {
 
 	wantBurn := required.Amount.ToLegacyDec().Mul(params.BurnPercentage).TruncateInt()
 	require.Equal(t, wantBurn, burn)
+}
+
+// A regression test for the gosec G115 finding fixed in RequiredFee: a
+// gasWanted at or above 2^63 must never wrap into a negative required fee
+// (which would let the ante handler's paid.LT(required) check pass for
+// any paid amount, including zero — a full fee-market bypass). gasWanted
+// is attacker-controlled (it comes straight from the tx), so this must
+// hold for the largest uint64 value, not just "large" values that still
+// fit in an int64.
+func TestRequiredFeeDoesNotOverflowForLargeGasWanted(t *testing.T) {
+	k, ctx := testkeeper.FeemarketKeeper(t)
+
+	small := k.RequiredFee(ctx, 200_000)
+	huge := k.RequiredFee(ctx, math.MaxUint64)
+
+	require.True(t, huge.Amount.IsPositive(), "required fee for a huge gasWanted must stay positive, got %s", huge.Amount)
+	require.True(t, huge.Amount.GT(small.Amount), "required fee must scale up with gasWanted, not wrap around")
 }

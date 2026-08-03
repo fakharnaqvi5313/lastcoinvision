@@ -81,7 +81,8 @@ touching the consensus-critical process.
 
 ## Software upgrades
 
-`cosmovisor` is the standard Cosmos SDK upgrade-automation tool — not yet wired into this
-repo's `deploy/` tooling (see the [roadmap](https://lastcoinvision.com/roadmap), Phase H).
-Until then, coordinated upgrades are manual: stop at the announced upgrade height, swap the
-`lcvd` binary, restart.
+`cosmovisor` supervises the node and automates the binary swap at a governance-approved
+upgrade height — see `scripts/upgrade/README.md` for setup and a full walkthrough that
+submits a real `MsgSoftwareUpgrade` proposal, votes it through, and confirms both the
+pre-upgrade binary's halt and the post-swap resume against a live devnet. `RELEASE_CHECKLIST.md`
+covers the operational runbook for a coordinated mainnet/testnet upgrade.

@@ -69,7 +69,7 @@ contract LCVEscrow {
         e.seller = seller;
         e.arbiter = arbiter;
 
-        uint256 total;
+        uint256 total = 0;
         for (uint256 i = 0; i < amounts.length; i++) {
             if (amounts[i] == 0) revert AmountMismatch();
             total += amounts[i];

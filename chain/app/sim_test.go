@@ -174,6 +174,7 @@ func TestAppImportExport(t *testing.T) {
 
 	fmt.Printf("exporting genesis...\n")
 
+	//lint:ignore SA4006 false positive — exported.AppState/.ConsensusParams are read further down (see json.Unmarshal(exported.AppState, ...) below)
 	exported, err := bApp.ExportAppStateAndValidators(false, []string{}, []string{})
 	require.NoError(t, err)
 
@@ -318,6 +319,7 @@ func TestAppSimulationAfterImport(t *testing.T) {
 
 	fmt.Printf("exporting genesis...\n")
 
+	//lint:ignore SA4006 false positive — exported.AppState is read further down (see the InitChain call below)
 	exported, err := bApp.ExportAppStateAndValidators(true, []string{}, []string{})
 	require.NoError(t, err)
 

@@ -357,7 +357,9 @@ func initTestnetFiles(
 			if err != nil || yes {
 				continue
 			}
-			copyFile(file, gentxsDir)
+			if _, err := copyFile(file, gentxsDir); err != nil {
+				return fmt.Errorf("could not copy gentx file %q into %q: %w", file, gentxsDir, err)
+			}
 		}
 	}
 	err := collectGenFiles(
@@ -375,11 +377,11 @@ func initTestnetFiles(
 }
 
 func writeFile(file, dir string, contents []byte) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("could not create directory %q: %w", dir, err)
 	}
 
-	if err := os.WriteFile(file, contents, 0o644); err != nil {
+	if err := os.WriteFile(file, contents, 0o600); err != nil {
 		return err
 	}
 
@@ -503,15 +505,17 @@ func copyFile(src, dstDir string) (int64, error) {
 	// Create the full destination path (directory + file name)
 	dst := filepath.Join(dstDir, fileName)
 
-	// Open the source file
-	sourceFile, err := os.Open(src)
+	// Open the source file. src/dst are gentx paths this same command just
+	// enumerated from directories it created moments earlier in this run
+	// (see the only caller, in initTestnetFiles) — never user/network input.
+	sourceFile, err := os.Open(src) // #nosec G304
 	if err != nil {
 		return 0, err
 	}
 	defer sourceFile.Close()
 
 	// Create the destination file
-	destinationFile, err := os.Create(dst)
+	destinationFile, err := os.Create(dst) // #nosec G304
 	if err != nil {
 		return 0, err
 	}
@@ -555,10 +559,13 @@ func isSubDir(src, dstDir string) (bool, error) {
 	return isInside, nil
 }
 
-// generateRandomString generates a random string of the specified length.
+// generateRandomString generates a random string of the specified length,
+// used only as a fallback chain-id suffix (e.g. "chain-ab3f9x") when
+// --chain-id is omitted from `multi-node` — never key material, a nonce,
+// or anything else where predictability matters.
 func generateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano())) // #nosec G404 -- cosmetic chain-id suffix, not security-sensitive
 
 	b := make([]byte, length)
 	for i := range b {

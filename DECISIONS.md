@@ -672,3 +672,75 @@ clobbering both onto the same port. Fixed by reordering the two `sed` calls (P2P
 RPC's line still starts with `127.0.0.1:` and can't be matched by the P2P pattern) — see the
 comment left in `generate.sh` at the fix site.
 
+## 2026-08-03 — Phase I: security scanning, a real fee-market bug, and dependency upgrades
+
+Running the four required scanners (`gosec`, `staticcheck`, `cargo audit`, `npm audit`, plus
+Slither on the Solidity contracts) surfaced one real, exploitable bug and a long tail of
+noise from generated code and transitive dependencies. Full findings breakdown lives in
+`AUDIT_SCOPE.md`; this entry covers the reasoning behind the fixes.
+
+**The real bug**: `x/feemarket/keeper/abci.go`'s `RequiredFee(ctx, gasWanted uint64)` computed
+`params.BaseFee.MulInt64(int64(gasWanted))` — casting a transaction's own `gasWanted` field
+(fully attacker-controlled, sourced from `feeTx.GetGas()` in `x/feemarket/ante/fee.go` with no
+upstream bound check anywhere in the Cosmos-branch ante chain) straight to `int64`. A
+`gasWanted` at or above 2^63 wraps negative on that cast, making the computed required fee
+negative. The ante handler's own check, `paid.LT(required.Amount)`, would then be `false` for
+*any* non-negative `paid` — including zero — completely bypassing the EIP-1559 fee-market's
+minimum-fee enforcement. Fixed by using `math.NewIntFromUint64(gasWanted).MulInt(...)`
+instead of the cast, which can never overflow (`sdkmath.Int` is arbitrary-precision).
+Regression test: `TestRequiredFeeDoesNotOverflowForLargeGasWanted`
+(`x/feemarket/keeper/abci_test.go`), asserting the required fee for `gasWanted =
+math.MaxUint64` is still positive and strictly greater than for a normal-sized `gasWanted`.
+
+By contrast, `x/feemarket/keeper/abci.go`'s *other* `gosec`-flagged conversion
+(`int64(ctx.BlockGasMeter().GasConsumedToLimit())`) and `x/emission/keeper/abci.go`'s two
+unix-timestamp conversions were left as `#nosec`-annotated: block gas consumed is capped by
+the block gas limit consensus param across the whole block (not one attacker's single tx
+field), and unix timestamps are nowhere near either integer type's range in practice. The
+difference that mattered: is the value a single, unbounded field an attacker directly
+controls, or is it something the chain itself already bounds by construction? Auditors should
+specifically re-check the ante/fee-handling path for the same pattern — see `AUDIT_SCOPE.md`.
+
+**Dependency upgrades, not just documentation, where a real fix existed:**
+- `sdk/` and `faucet/`: the entire `@cosmjs/*` family bumped `0.32.4` → `0.39.0` (lockstep
+  versions, confirmed via `npm view`), which turned out to **drop the `@confio/ics23`
+  dependency entirely** (confirmed via `npm view @cosmjs/stargate@latest dependencies`) —
+  `ics23@0.6.8` (the latest available, even today) still pins `protobufjs@^6.8.8`, an old
+  major line with a critical arbitrary-code-execution CVE that upstream has never patched.
+  Forcing an npm `overrides` on that transitive `protobufjs` instead was considered and
+  rejected: `ics23` is merkle-proof verification code, and silently forcing a
+  major-version-incompatible dependency into crypto-adjacent code carries its own
+  correctness risk that a security-audit pass shouldn't introduce without deep testing. The
+  version bump instead removes the vulnerable dependency at its root. Verified: `npm run
+  typecheck`, `npm run build`, and the full `sdk` test suite (58 tests, 100% coverage
+  maintained) all pass unchanged after the bump; `faucet` typecheck/build unchanged.
+- `web/`: Next.js `14.2.0` → `16.2.12` and React `18.3.0` → `19.2.8` (coordinated, since Next
+  16 requires React 19) to clear a long list of real Next.js CVEs (DoS, SSRF, cache
+  poisoning) only fixed in `>=15.5.21`. Two further findings were Next's own internally
+  vendored `postcss`/`sharp` versions (not overridable via the project's own `postcss`
+  dependency, since Next bundles its own copy for its build pipeline) — forced to patched
+  versions via npm's `overrides` field, verified safe since both are minor/patch-level bumps
+  within their existing major version. One real compile break from the recharts 2→3 major
+  bump (`EmissionChart.tsx`'s `Tooltip` `formatter`/`labelFormatter` callback types tightened)
+  — fixed by removing the now-unnecessary explicit parameter types. Verified: `npm run
+  typecheck`, `npm run build` (all 19 routes), and a smoke-check of `/`, `/token`,
+  `/developers`, `/roadmap` via a production `next start` server (title tags and 200 status
+  codes confirmed; the interactive dev-server preview tool hit an unrelated environment
+  issue, so this was done via `curl` instead of the browser tool).
+- `docs/`: already on the latest available Docusaurus 3.x (`3.10.2`); its remaining findings
+  (`webpack-dev-server`, `sockjs`, `serialize-javascript`, `uuid`) are Docusaurus's own
+  vendored dev-server/build tooling with no newer upstream release — `npm audit fix` (without
+  `--force`) confirmed no version bump is currently available. Dev-server-only; never present
+  in the deployed static site output. Documented as an accepted, tracked upstream gap rather
+  than force-installing an unreleased fix.
+
+**Fuzz tests** (Go native `go test -fuzz`, run just over 5 minutes each, all clean — see
+`AUDIT_SCOPE.md` for what each one checks): `FuzzMsgTaxedTransfer` (34,806 execs / 323s),
+`FuzzMsgTransferAsset` (33,345 execs / 315s), `FuzzVoteTally` (33,783 execs / 305s).
+`FuzzMsgTransferAsset` is modeled as a property check over the four independent preconditions
+(frozen/authorized/both-parties-attested) rather than fuzzing raw address strings, since an
+arbitrary fuzzed string is never the real owner or authority address and would only ever
+exercise the "stranger" rejection branch — the interesting state space is the *combination*
+of boolean preconditions, which Go's fuzzer explores far more thoroughly than a hand-written
+table of cases would.
+
