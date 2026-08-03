@@ -1,0 +1,40 @@
+/**
+ * Palette matches web/tailwind.config.ts: navy-500 #1F4E79 (spec brand
+ * navy) as the primary color, accent #0EEBFD (from the master logo's ring)
+ * as the single accent — see lastcoinvision.com/brand.
+ */
+:root {
+  --ifm-color-primary: #1f4e79;
+  --ifm-color-primary-dark: #1c4670;
+  --ifm-color-primary-darker: #1a4269;
+  --ifm-color-primary-darkest: #163656;
+  --ifm-color-primary-light: #225682;
+  --ifm-color-primary-lighter: #245a89;
+  --ifm-color-primary-lightest: #29669c;
+  --ifm-code-font-size: 90%;
+  --ifm-navbar-height: 4rem;
+  --docusaurus-highlighted-code-line-bg: rgba(14, 235, 253, 0.15);
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #0eebfd;
+  --ifm-color-primary-dark: #0bc2d1;
+  --ifm-color-primary-darker: #0899a5;
+  --ifm-color-primary-darkest: #067179;
+  --ifm-color-primary-light: #33eefb;
+  --ifm-color-primary-lighter: #66f2fc;
+  --ifm-color-primary-lightest: #99f7fd;
+  --ifm-background-color: #081627;
+}
+
+.navbar {
+  box-shadow: 0 1px 0 0 rgba(31, 78, 121, 0.1);
+}
+
+[data-theme="dark"] .navbar {
+  background-color: #0e2640;
+}
+
+.admonition-title {
+  font-weight: 600;
+}

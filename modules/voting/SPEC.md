@@ -22,8 +22,8 @@ may create elections.
 
 - `MsgCreateElection(created_by, title, description, eligibility_credential_type, options,
   registration_start, registration_end, voting_start, voting_end, reveal_end)` — validates
-  strict window ordering: `registration_start < registration_end <= voting_start < voting_end
-  <= reveal_end`. `eligibility_credential_type` names an `x/identity` credential type (e.g.
+  strict window ordering: `registration_start < registration_end <= voting_start < voting_end <= reveal_end`.
+  `eligibility_credential_type` names an `x/identity` credential type (e.g.
   `"voter-registration"`) rather than hardcoding a tier, so different elections can require
   different credentials.
 - `MsgRegisterToVote(voter, election_id)` — only during the registration window
