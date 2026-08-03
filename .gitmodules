@@ -1,0 +1,3 @@
+[submodule "explorer/vendor/ping-pub"]
+	path = explorer/vendor/ping-pub
+	url = https://github.com/ping-pub/explorer.git

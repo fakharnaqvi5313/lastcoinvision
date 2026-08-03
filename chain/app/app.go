@@ -990,6 +990,8 @@ func New(
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
 
+	app.setupUpgradeHandlers()
+
 	app.SetInitChainer(app.InitChainer)
 	app.SetPreBlocker(app.PreBlocker)
 	app.SetBeginBlocker(app.BeginBlocker)

@@ -1,0 +1,14 @@
+# TEMPLATE — a public testnet's genesis.json is a published, immutable
+# artifact (see the roadmap for where LCV's will be hosted once one
+# exists); generate this ConfigMap from the real file rather than editing
+# JSON into a manifest by hand:
+#
+#   kubectl create configmap lcv-genesis -n lcv-testnet \
+#     --from-file=genesis.json=./genesis.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lcv-genesis
+  namespace: lcv-testnet
+data:
+  genesis.json: "REPLACE ME — see comment above"

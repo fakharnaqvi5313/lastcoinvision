@@ -1,0 +1,14 @@
+# The .example.yaml templates (genesis, node-ids, node-keys) are
+# intentionally excluded — see README.md's "Before deploying" section.
+# Rename them after filling in real values, then add them here (or apply
+# them separately with kubectl create secret/configmap --from-file, which
+# is the recommended path for the two Secrets).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lcv-testnet
+resources:
+  - namespace.yaml
+  - configmap-entrypoint.yaml
+  - statefulset-validator.yaml
+  - statefulset-sentry.yaml
+  - networkpolicy-validator.yaml

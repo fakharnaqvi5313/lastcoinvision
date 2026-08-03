@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chain:
+    name: chain (lint, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: chain/go.mod
+
+      - name: go vet + gofmt
+        run: make lint
+
+      - name: go test
+        run: make test
+
+      - name: go build
+        run: make build
+
+      - name: Upload lcvd binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcvd-linux-amd64
+          path: chain/build/lcvd
+          retention-days: 7
+
+  node:
+    name: node (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [sdk, cli, faucet, web, docs]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        if: matrix.package == 'sdk'
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+  contracts-solidity:
+    name: contracts (solidity)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/solidity
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: forge build
+        run: forge build
+
+      - name: forge test
+        run: forge test -vvv
+
+  contracts-cosmwasm:
+    name: contracts (cosmwasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: cargo test
+        run: |
+          for dir in contracts/cosmwasm/*/; do
+            if [ -f "$dir/Cargo.toml" ]; then
+              (cd "$dir" && cargo test)
+            fi
+          done

@@ -28,9 +28,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	"github.com/cosmos/cosmos-sdk/testutil"
-	evmconfig "github.com/cosmos/evm/config"
-	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
-	"github.com/lastcoinvision/lcv/app"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -38,6 +35,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	evmconfig "github.com/cosmos/evm/config"
+	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
+	"github.com/lastcoinvision/lcv/app"
 
 	runtime "github.com/cosmos/cosmos-sdk/runtime"
 )

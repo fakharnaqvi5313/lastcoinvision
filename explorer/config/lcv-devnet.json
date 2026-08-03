@@ -1,0 +1,16 @@
+{
+  "chain_name": "lcv-devnet",
+  "api": ["http://localhost:1317"],
+  "rpc": ["http://localhost:26657"],
+  "sdk_version": "0.53.6",
+  "coin_type": "118",
+  "min_tx_fee": "500",
+  "addr_prefix": "lcv",
+  "assets": [
+    {
+      "base": "ulcv",
+      "symbol": "LCV",
+      "exponent": "6"
+    }
+  ]
+}

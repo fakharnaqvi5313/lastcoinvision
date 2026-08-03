@@ -1,0 +1,25 @@
+# Enforces in-cluster what the validator's own config (pex=false,
+# persistent_peers limited to sentries — see configmap-entrypoint.yaml)
+# already does at the application layer: the validator is reachable only
+# from the 3 sentry pods, never from the public internet or any other
+# workload in the namespace. Requires a CNI that implements NetworkPolicy
+# (Calico, Cilium, etc. — not the default on every cluster).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lcv-validator-isolation
+  namespace: lcv-testnet
+spec:
+  podSelector:
+    matchLabels:
+      app: lcv-validator
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: lcv-sentry
+      ports:
+        - protocol: TCP
+          port: 26656

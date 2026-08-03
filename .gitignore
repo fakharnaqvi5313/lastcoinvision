@@ -32,7 +32,7 @@ Cargo.lock
 
 # Devnet / local chain data
 **/.lcvd/
-deploy/docker-compose/data/
+deploy/docker-compose/.devnet/
 *.log
 
 # Env / secrets

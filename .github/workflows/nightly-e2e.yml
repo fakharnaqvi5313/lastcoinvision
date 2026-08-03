@@ -1,0 +1,52 @@
+name: Nightly devnet e2e
+
+on:
+  schedule:
+    # 07:00 UTC every day
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  devnet-e2e:
+    name: Devnet smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: chain/go.mod
+
+      - name: Build lcvd + gengenesis
+        run: make build
+
+      - name: Start 4-validator devnet
+        run: |
+          make devnet
+          echo "Waiting a moment for processes to settle..."
+          sleep 3
+
+      - name: Run e2e smoke test
+        run: ./scripts/ci/e2e-smoke.sh
+
+      - name: Dump validator logs on failure
+        if: failure()
+        run: |
+          for f in "$HOME/.lcv-devnet"/validator*/node.log; do
+            echo "===== $f ====="
+            tail -n 200 "$f" || true
+          done
+
+      - name: Stop devnet
+        if: always()
+        run: make localnet-stop
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-logs
+          path: ~/.lcv-devnet/validator*/node.log
+          retention-days: 3
+          if-no-files-found: ignore

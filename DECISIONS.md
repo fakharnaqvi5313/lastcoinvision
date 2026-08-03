@@ -566,3 +566,109 @@ the way: a multi-line inline code span containing `<`/`<=` in `modules/voting/SP
 JSX-aware tokenizer into a hard parse failure — reflowed so the span stays on one line, no
 content change.
 
+## 2026-08-03 — FIXED: root `make lint`/`make test` were silently broken (CI would have been green on red code)
+
+While wiring up `.github/workflows/ci.yml` for Phase H, running the exact `make lint` /
+`make test` / `make build` commands the workflow calls (to confirm CI would actually pass)
+surfaced two real, previously-undiscovered bugs in the root `Makefile`:
+
+1. **`make test` failed outright, every time.** `go vet ./...` against the whole `chain`
+   module trips "unreachable code" on generated `protoc-gen-go-pulsar` output under
+   `chain/api/**` (confirmed these are 100% `// Code generated ... DO NOT EDIT` files, and
+   `go vet` on every non-generated package is clean). `make test` ran vet as an unconditional
+   prerequisite line, so it never even reached `go test`. Fixed by scoping vet to
+   `$(go list ./... | grep -v '/api/')` in both `test` and `lint`.
+2. **`make lint`'s fallback path (no `golangci-lint` installed, which is this environment's
+   actual state) could never fail**, regardless of real vet or gofmt problems. The recipe's
+   `cd chain && go vet ./...;` used a bare `;` instead of `&&`/`|| exit 1`, discarding vet's
+   exit code. Worse, the *next* line's `gofmt -l .` ran inside `$(cd chain && ...)` — but the
+   shell's cwd was already `chain/` from the previous line (recipe lines joined by `\` share
+   one shell), so it silently tried `cd chain/chain`, failed, and produced an empty (i.e.
+   "everything's formatted") result no matter what. Fixed by `cd`-ing into `chain/` exactly
+   once at the top of the recipe, and propagating vet's exit code with `|| exit 1`.
+
+Running the corrected `make lint` for the first time immediately caught one real
+`gofmt`-dirty file, `chain/cmd/lcvd/cmd/testnet_multi_node.go` (import-block ordering, from
+the Phase G devnet fix) — reformatted with `gofmt -w`, no logic change.
+
+This should be treated the same way as the Phase G `make devnet` findings: a genuinely broken
+piece of the documented workflow that would have made Phase H's "CI green" acceptance
+criterion meaningless (CI would have reported success on the `test` job never running any
+tests, and the `lint` job never being able to fail). Caught only because CI's exact commands
+were run locally before trusting the workflow, not because of any change in scope.
+
+## 2026-08-03 — Software-upgrade handler discovery: a binary can't schedule an upgrade it already contains
+
+Building `scripts/upgrade/`'s governance walkthrough for the sample "v2" upgrade
+(`chain/app/upgrades/v2`, wired via `chain/app/upgrades.go`'s `setupUpgradeHandlers()`)
+surfaced a real cosmos-sdk behavior that isn't obvious from the docs: **a binary that already
+has a named upgrade's handler registered cannot schedule that same upgrade via governance —
+it panics immediately** (`BINARY UPDATED BEFORE TRIGGER! UPGRADE "v2" - in binary but not
+executed on chain. Downgrade your binary`), not just at the target height. `x/upgrade`'s ABCI
+handling checks this on every block once a plan is scheduled, and refuses to let history show
+a plan as "passed but not yet executed" if the running binary is already capable of executing
+it — a real safeguard against operators running tomorrow's binary today.
+
+This meant the walkthrough's first design (submit the "v2" upgrade against a normal `make
+devnet`, using the same always-registered binary throughout) doesn't work: `chain/build/lcvd`
+has the `v2` handler registered unconditionally, so it hit the panic the instant the proposal
+passed. Confirmed by testing on a fresh devnet with the current binary — same panic.
+
+**Fix:** `scripts/upgrade/build-pre-upgrade-binary.sh` builds a temporary "pre-v2" binary
+(the one `setupUpgradeHandlers()` line commented out via `sed`, restored immediately after
+via a trap) purely for the walkthrough to run its "before" validators on —
+`submit-upgrade-proposal.sh` starts a fresh devnet on that binary, submits+votes+passes the
+proposal, confirms the pre-v2 binary halts at the target height with the expected `UPGRADE
+"v2" NEEDED` error (the *correct*, designed outcome — this is exactly the moment a real
+operator's cosmovisor would swap in the new binary), then swaps in the real
+`chain/build/lcvd` and confirms the chain resumes and keeps producing blocks past that
+height. Verified end-to-end, including watching the expected panic in the pre-v2 binary's log
+before the swap.
+
+This should be treated as a durable lesson for any *future* named upgrade added to this repo,
+not just a one-off script quirk: an upgrade's handler must never ship in a binary that's
+already running before governance schedules that exact upgrade, or the chain halts
+immediately instead of at the intended height.
+
+## 2026-08-03 — `deploy/docker-compose/`'s `lcvd` image could not be built end-to-end in this environment (disk)
+
+This development sandbox's host filesystem has very little free space (repeatedly measured
+between 0.5–5 GB free, fluctuating, on what's nominally a 234 GB volume — most of it is
+consumed by other things on the host outside this repo). `chain/Dockerfile`'s builder stage
+(`golang:1.25-bookworm`, then `go mod download` + compiling the full cosmos-sdk/wasmvm/evm
+dependency tree with CGO) needs several GB of headroom to complete; three separate attempts
+here failed with `no space left on device` mid-build, twice during the base image's own layer
+extraction (before compilation even started). Freeing space between attempts (clearing
+`go-build`/Homebrew/Yarn/pip caches, pruning Docker's build cache) helped but wasn't durably
+enough — this appears to be a hard constraint of this particular sandbox, not something more
+cache-clearing fixes.
+
+**What was and wasn't verified as a result:**
+
+- `docker-compose.yml`: valid — `docker compose config` resolves the full 7-service stack
+  (including `.env`-sourced `FAUCET_MNEMONIC`) with no errors.
+- `deploy/docker-compose/generate.sh`: verified for real — generates a working 4-validator
+  genesis and rewrites each validator's `config.toml`/`app.toml` for container-to-container
+  networking. Caught and fixed one real bug this way (see below).
+- `explorer/Dockerfile`: **built successfully and run** (`docker build` + `docker run`),
+  confirmed serving ping.pub correctly including the SPA-routing nginx fix and the bundled
+  `lcv-devnet` chain config.
+- `faucet/Dockerfile` and `web/Dockerfile`: standard multi-stage Node patterns (already
+  proven — `npm run build` for both packages was verified working locally in this same
+  environment, including `web`'s new `output: "standalone"` config added specifically for
+  this Dockerfile). Not run inside Docker itself due to the same disk constraint, but nothing
+  about them is unusual or untested at the build-tool level.
+- `chain/Dockerfile`: **not verified end-to-end** — correct, standard multi-stage Go+CGO
+  design (matches how any wasmvm-linked cosmos chain must be built: native compile per
+  target, no cross-compilation), but this environment couldn't complete the build to confirm
+  it. Recommend running `docker compose build lcvd0` (or `docker compose up --build`) on a
+  machine with at least ~10 GB free disk to complete this specific verification — nothing in
+  the design depends on this environment's constraint, it's purely a resource limit here.
+
+**Real bug found and fixed via `generate.sh` regardless:** the P2P (`26656`) and RPC
+(`26657`) `laddr` rewrite sed commands ran in an order where the RPC line's fresh
+`tcp://0.0.0.0:...` value collided with the P2P rewrite's own match pattern, silently
+clobbering both onto the same port. Fixed by reordering the two `sed` calls (P2P first, while
+RPC's line still starts with `127.0.0.1:` and can't be matched by the P2P pattern) — see the
+comment left in `generate.sh` at the fix site.
+

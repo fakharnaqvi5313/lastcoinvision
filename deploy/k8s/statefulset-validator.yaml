@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lcv-validator
+  namespace: lcv-testnet
+spec:
+  clusterIP: None # headless — gives lcv-validator-0 a stable in-cluster DNS name
+  selector:
+    app: lcv-validator
+  ports:
+    - name: p2p
+      port: 26656
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lcv-validator
+  namespace: lcv-testnet
+spec:
+  serviceName: lcv-validator
+  replicas: 1 # exactly one — a second replica of the same consensus key is a double-sign
+  selector:
+    matchLabels:
+      app: lcv-validator
+  template:
+    metadata:
+      labels:
+        app: lcv-validator
+    spec:
+      containers:
+        - name: lcvd
+          image: lcv-lcvd:latest # built from chain/Dockerfile — replace with your registry path
+          command: ["/entrypoint/entrypoint.sh"]
+          env:
+            - name: ROLE
+              value: validator
+            - name: NAMESPACE
+              value: lcv-testnet
+          envFrom:
+            - configMapRef:
+                name: lcv-node-ids
+          ports:
+            - name: p2p
+              containerPort: 26656
+            - name: rpc
+              containerPort: 26657
+          volumeMounts:
+            - name: data
+              mountPath: /home/lcvd
+            - name: entrypoint
+              mountPath: /entrypoint
+            - name: genesis
+              mountPath: /genesis
+            - name: validator-key
+              mountPath: /validator-key
+              readOnly: true
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+            limits:
+              memory: 64Gi
+      volumes:
+        - name: entrypoint
+          configMap:
+            name: lcv-entrypoint
+            defaultMode: 0755
+        - name: genesis
+          configMap:
+            name: lcv-genesis
+        - name: validator-key
+          secret:
+            secretName: lcv-validator-key
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 500Gi

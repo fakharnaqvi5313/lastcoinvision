@@ -1,0 +1,15 @@
+# TEMPLATE — fill in with the real node IDs after generating the keys in
+# secret-node-keys.example.yaml (`lcvd comet show-node-id --home <dir>`
+# for each of validator-0/sentry-0/sentry-1/sentry-2). These are public
+# identifiers, not secrets, but persistent_peers breaks if they're wrong.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lcv-node-ids
+  namespace: lcv-testnet
+data:
+  VALIDATOR_ID: "REPLACE_ME"
+  SENTRY0_ID: "REPLACE_ME"
+  SENTRY1_ID: "REPLACE_ME"
+  SENTRY2_ID: "REPLACE_ME"
+  CHAIN_ID: "lcv-testnet"

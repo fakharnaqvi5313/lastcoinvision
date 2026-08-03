@@ -1,0 +1,92 @@
+name: lcv-devnet
+
+services:
+  lcvd0:
+    image: lcv-lcvd:local
+    build:
+      context: ../../chain
+      dockerfile: Dockerfile
+    command: ["start", "--home", "/root/.lcv-devnet"]
+    volumes:
+      - ./.devnet/validator0:/root/.lcv-devnet
+    ports:
+      - "26657:26657" # RPC
+      - "1317:1317" # REST
+      - "9090:9090" # gRPC
+      - "8545:8545" # EVM JSON-RPC
+      - "8546:8546" # EVM JSON-RPC ws
+
+  lcvd1:
+    image: lcv-lcvd:local
+    build:
+      context: ../../chain
+      dockerfile: Dockerfile
+    command: ["start", "--home", "/root/.lcv-devnet"]
+    volumes:
+      - ./.devnet/validator1:/root/.lcv-devnet
+    ports:
+      - "26667:26657"
+      - "1327:1317"
+      - "9100:9090"
+      - "8555:8545"
+      - "8556:8546"
+
+  lcvd2:
+    image: lcv-lcvd:local
+    build:
+      context: ../../chain
+      dockerfile: Dockerfile
+    command: ["start", "--home", "/root/.lcv-devnet"]
+    volumes:
+      - ./.devnet/validator2:/root/.lcv-devnet
+    ports:
+      - "26677:26657"
+      - "1337:1317"
+      - "9110:9090"
+      - "8565:8545"
+      - "8566:8546"
+
+  lcvd3:
+    image: lcv-lcvd:local
+    build:
+      context: ../../chain
+      dockerfile: Dockerfile
+    command: ["start", "--home", "/root/.lcv-devnet"]
+    volumes:
+      - ./.devnet/validator3:/root/.lcv-devnet
+    ports:
+      - "26687:26657"
+      - "1347:1317"
+      - "9120:9090"
+      - "8575:8545"
+      - "8576:8546"
+
+  faucet:
+    build:
+      context: ../../faucet
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      LCV_RPC_URL: http://lcvd0:26657
+      LCV_BECH32_PREFIX: lcv
+      FAUCET_DENOM: ulcv
+    ports:
+      - "8088:8088"
+    depends_on:
+      - lcvd0
+
+  explorer:
+    build:
+      context: ../../explorer
+      dockerfile: Dockerfile
+    ports:
+      - "8090:80"
+    depends_on:
+      - lcvd0
+
+  web:
+    build:
+      context: ../../web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"

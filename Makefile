@@ -16,17 +16,18 @@ build: ## Build the lcvd binary into chain/build/
 
 .PHONY: test
 test: ## Run unit tests for the chain module
-	cd $(CHAIN_DIR) && go vet ./...
+	cd $(CHAIN_DIR) && go vet $$(go list ./... | grep -v '/api/')
 	cd $(CHAIN_DIR) && go test ./...
 
 .PHONY: lint
 lint: ## Lint the chain module (golangci-lint if available, else go vet + gofmt check)
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		cd $(CHAIN_DIR) && golangci-lint run ./... --timeout 15m; \
+	@cd $(CHAIN_DIR) && \
+	if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./... --timeout 15m; \
 	else \
 		echo "golangci-lint not found; falling back to go vet + gofmt -l"; \
-		cd $(CHAIN_DIR) && go vet ./...; \
-		unformatted=$$(cd $(CHAIN_DIR) && gofmt -l .); \
+		go vet $$(go list ./... | grep -v '/api/') || exit 1; \
+		unformatted=$$(gofmt -l . | grep -v '^api/'); \
 		if [ -n "$$unformatted" ]; then \
 			echo "gofmt would reformat:"; echo "$$unformatted"; exit 1; \
 		fi; \
@@ -49,5 +50,9 @@ localnet-reset: localnet-stop ## Stop the devnet and wipe all its state
 	rm -rf $(OUTPUT_DIR)
 
 .PHONY: devnet-docker
-devnet-docker: ## (Phase H) docker-compose devnet — not yet implemented, see DECISIONS.md
-	@echo "devnet-docker is not implemented yet; use 'make devnet' for the local process-based devnet." && exit 1
+devnet-docker: ## Full local stack in Docker: 4 validators + faucet + explorer + website
+	cd deploy/docker-compose && ./generate.sh && docker compose up --build
+
+.PHONY: devnet-docker-stop
+devnet-docker-stop: ## Stop the docker-compose devnet stack
+	cd deploy/docker-compose && docker compose down

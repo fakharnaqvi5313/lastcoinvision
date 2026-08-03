@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lcv-sentry
+  namespace: lcv-testnet
+spec:
+  clusterIP: None # headless — gives each lcv-sentry-N pod a stable in-cluster DNS name
+  selector:
+    app: lcv-sentry
+  ports:
+    - name: p2p
+      port: 26656
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lcv-sentry-p2p
+  namespace: lcv-testnet
+  annotations:
+    # Replace with your cloud provider's LB annotations as needed. Public
+    # P2P is meant to terminate here — never on lcv-validator directly.
+    service.beta.kubernetes.io/example: "configure-your-cloud-lb-here"
+spec:
+  type: LoadBalancer
+  selector:
+    app: lcv-sentry
+  ports:
+    - name: p2p
+      port: 26656
+      targetPort: 26656
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lcv-rpc
+  namespace: lcv-testnet
+spec:
+  # Public RPC/REST/gRPC are served from sentries (any of the 3, load
+  # balanced), never from the validator — matches the sentry-architecture
+  # guidance in docs/docs/validator-handbook.md.
+  type: LoadBalancer
+  selector:
+    app: lcv-sentry
+  ports:
+    - name: rpc
+      port: 26657
+      targetPort: 26657
+    - name: rest
+      port: 1317
+      targetPort: 1317
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lcv-sentry
+  namespace: lcv-testnet
+spec:
+  serviceName: lcv-sentry
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lcv-sentry
+  template:
+    metadata:
+      labels:
+        app: lcv-sentry
+    spec:
+      containers:
+        - name: lcvd
+          image: lcv-lcvd:latest # built from chain/Dockerfile — replace with your registry path
+          command: ["/entrypoint/entrypoint.sh"]
+          env:
+            - name: ROLE
+              value: sentry
+            - name: NAMESPACE
+              value: lcv-testnet
+          envFrom:
+            - configMapRef:
+                name: lcv-node-ids
+          ports:
+            - name: p2p
+              containerPort: 26656
+            - name: rpc
+              containerPort: 26657
+            - name: rest
+              containerPort: 1317
+          volumeMounts:
+            - name: data
+              mountPath: /home/lcvd
+            - name: entrypoint
+              mountPath: /entrypoint
+            - name: genesis
+              mountPath: /genesis
+            - name: sentry-node-keys
+              mountPath: /sentry-node-keys
+              readOnly: true
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+            limits:
+              memory: 64Gi
+      volumes:
+        - name: entrypoint
+          configMap:
+            name: lcv-entrypoint
+            defaultMode: 0755
+        - name: genesis
+          configMap:
+            name: lcv-genesis
+        - name: sentry-node-keys
+          secret:
+            secretName: lcv-sentry-node-keys
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 500Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: lcv-sentry-pdb
+  namespace: lcv-testnet
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: lcv-sentry

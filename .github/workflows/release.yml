@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build binaries for (e.g. v0.1.0)"
+        required: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # lcvd links CosmWasm's wasmvm, which ships prebuilt native
+          # libwasmvm libraries per platform/arch — cross-compiling from a
+          # single runner isn't viable, so each target builds natively on a
+          # matching OS/arch runner instead of setting GOOS/GOARCH by hand.
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+          - os: macos-14
+            goos: darwin
+            goarch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: chain/go.mod
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build lcvd
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          cd chain
+          COMMIT="$(git log -1 --format='%H')"
+          VERSION="${{ steps.version.outputs.version }}"
+          ldflags="-X github.com/cosmos/cosmos-sdk/version.Name=lcv \
+            -X github.com/cosmos/cosmos-sdk/version.AppName=lcvd \
+            -X github.com/cosmos/cosmos-sdk/version.Version=$VERSION \
+            -X github.com/cosmos/cosmos-sdk/version.Commit=$COMMIT"
+          mkdir -p build
+          go build -trimpath -ldflags "$ldflags" -o build/lcvd ./cmd/lcvd
+
+      - name: Package + checksum
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NAME="lcvd_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p "dist/$NAME"
+          cp chain/build/lcvd "dist/$NAME/lcvd"
+          [ -f LICENSE ] && cp LICENSE "dist/$NAME/"
+          tar -C dist -czf "dist/$NAME.tar.gz" "$NAME"
+          ( cd dist && shasum -a 256 "$NAME.tar.gz" > "$NAME.tar.gz.sha256" )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lcvd_${{ steps.version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          retention-days: 30
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Aggregate checksums
+        run: cat dist/*.sha256 > dist/checksums.txt
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: lcvd ${{ steps.version.outputs.version }}
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true
+          draft: ${{ github.event_name == 'workflow_dispatch' }}

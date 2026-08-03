@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lcv-entrypoint
+  namespace: lcv-testnet
+data:
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    # Shared entrypoint for both the validator and sentry StatefulSets,
+    # distinguished by the $ROLE env var. Handles first-boot init and wires
+    # up persistent_peers from the node IDs in lcv-node-ids (see README.md —
+    # those IDs are derived from node_key.json files the operator generates
+    # and stores in Secrets *before* first deploy, since a node's ID must
+    # stay stable across restarts for persistent_peers to keep working).
+    set -euo pipefail
+
+    HOME_DIR=/home/lcvd
+    ORDINAL="${HOSTNAME##*-}"
+
+    if [ ! -f "$HOME_DIR/config/genesis.json" ]; then
+      echo "==> First boot: initializing $HOME_DIR"
+      lcvd init "$ROLE-$ORDINAL" --chain-id "$CHAIN_ID" --home "$HOME_DIR"
+      cp /genesis/genesis.json "$HOME_DIR/config/genesis.json"
+      if [ "$ROLE" = "validator" ]; then
+        cp /validator-key/node_key.json "$HOME_DIR/config/node_key.json"
+        cp /validator-key/priv_validator_key.json "$HOME_DIR/config/priv_validator_key.json"
+      else
+        cp "/sentry-node-keys/node_key-${ORDINAL}.json" "$HOME_DIR/config/node_key.json"
+      fi
+    fi
+
+    sed_i() { sed -i "$1" "$HOME_DIR/config/config.toml"; }
+    sentry_addr() { echo "lcv-sentry-$1.lcv-sentry.${NAMESPACE}.svc.cluster.local:26656"; }
+
+    if [ "$ROLE" = "validator" ]; then
+      # The validator only ever dials its own sentries — never the public
+      # network directly (see docs/docs/validator-handbook.md's sentry
+      # architecture section). pex=false stops it from learning/gossiping
+      # any peer beyond that fixed list.
+      PEERS="${SENTRY0_ID}@$(sentry_addr 0),${SENTRY1_ID}@$(sentry_addr 1),${SENTRY2_ID}@$(sentry_addr 2)"
+      sed_i "s#^persistent_peers = .*#persistent_peers = \"$PEERS\"#"
+      sed_i 's#^pex = .*#pex = false#'
+      sed_i 's#^laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#'
+    else
+      # Sentries peer with the validator (private, in-cluster DNS only)
+      # and with each other for redundancy if one sentry drops.
+      ALL_SENTRIES="0:${SENTRY0_ID} 1:${SENTRY1_ID} 2:${SENTRY2_ID}"
+      PEERS="${VALIDATOR_ID}@lcv-validator-0.lcv-validator.${NAMESPACE}.svc.cluster.local:26656"
+      for pair in $ALL_SENTRIES; do
+        idx="${pair%%:*}"
+        id="${pair##*:}"
+        [ "$idx" = "$ORDINAL" ] && continue
+        PEERS="${PEERS},${id}@$(sentry_addr "$idx")"
+      done
+      sed_i "s#^persistent_peers = .*#persistent_peers = \"$PEERS\"#"
+      sed_i 's#^laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#'
+      sed -i 's#^address = "tcp://localhost:1317"#address = "tcp://0.0.0.0:1317"#' "$HOME_DIR/config/app.toml"
+    fi
+
+    echo "==> Starting lcvd ($ROLE-$ORDINAL)"
+    exec lcvd start --home "$HOME_DIR"
