@@ -1,0 +1,51 @@
+{
+  "name": "@lastcoinvision/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for LastcoinVision (LCV): typed clients for the identity, registry, voting, and taxrail modules, plus Keplr and MetaMask wallet helpers.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "proto:gen": "buf generate --template buf.gen.yaml ../chain/proto",
+    "devnet:query": "tsx examples/query-modules.ts",
+    "devnet:did": "tsx examples/create-did-node.ts",
+    "devnet:tax": "tsx examples/taxed-transfer-node.ts"
+  },
+  "dependencies": {
+    "@cosmjs/amino": "^0.32.4",
+    "@cosmjs/crypto": "^0.32.4",
+    "@cosmjs/encoding": "^0.32.4",
+    "@cosmjs/proto-signing": "^0.32.4",
+    "@cosmjs/stargate": "^0.32.4",
+    "protobufjs": "^7.4.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.0",
+    "ts-proto": "^1.181.2",
+    "tsup": "^8.3.0",
+    "tsx": "^4.23.5",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
