@@ -2,6 +2,37 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-04 — `deploy/docker-compose/`'s faucet service verified against `lcv-testnet-1`; explorer/web found not (yet) repointable
+
+While waiting out the real 48h governance window from the entry below, picked up the one
+still-open half of §3 step 6: whether `docker compose up` can "stand up explorer/faucet/website
+pointed at the new network correctly."
+
+**Finding:** only `faucet` actually can be, today. `docker-compose.yml` hardcoded
+`LCV_RPC_URL: http://lcvd0:26657` directly in the `environment:` block — faucet is a plain
+Node/Express server that reads this at runtime, so making it a `.env`-overridable variable
+(`${LCV_RPC_URL:-http://lcvd0:26657}`, default unchanged) was a one-line, zero-risk fix.
+`explorer` and `web` are structurally different: `explorer`'s Dockerfile `COPY`s
+`config/lcv-devnet.json` (chain name, RPC/API URLs) directly into the ping.pub build at image
+build time, and `web`'s `NEXT_PUBLIC_LCV_RPC_URL` is a Next.js env var that gets inlined into
+the client-side JS bundle at build time, not read at runtime. Repointing either at a real
+network needs actual Dockerfile/build-arg changes (a template config file, a build ARG plumbed
+through), not a `.env` edit — a real, scoped follow-up, documented rather than either forced
+through hastily or silently left unmentioned.
+
+**Verified the faucet fix for real, not just "should work":** generated a fresh throwaway
+keypair, funded it with 50,000 LCV from the community allocation bucket (broadcasting straight
+to `https://rpc.lastcoinvision.com` — no SSH tunnel needed anymore now that RPC is public),
+wrote a local (gitignored, deleted after) `.env` with that mnemonic and
+`LCV_RPC_URL=https://rpc.lastcoinvision.com`, built the `faucet` image, and ran it standalone
+(`docker compose up --no-deps faucet`, skipping the bundled `lcvd0` devnet dependency it would
+otherwise pull in). Hit local disk running low again (down to 1.7Gi at one point — the same
+recurring constraint on this dev machine noted elsewhere in this doc) and cleaned Go/npm
+caches before the Docker build to be safe. `POST /faucet` against the container running on
+`localhost:8088` moved real `lcv-testnet-1` funds — confirmed by querying the recipient's
+on-chain balance directly (went 10→20 LCV, since the same test address had already received
+10 LCV from the actual `faucet.lastcoinvision.com` in an earlier verification pass).
+
 ## 2026-08-04 — RELEASE_CHECKLIST.md §2/§3/§4: cosmovisor, monitoring, and real governance-gated acceptance testing
 
 Working through the rest of the release checklist against the live `lcv-testnet-1` bootstrap

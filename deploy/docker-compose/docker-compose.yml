@@ -67,7 +67,13 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     environment:
-      LCV_RPC_URL: http://lcvd0:26657
+      # Defaults to the bundled local devnet; override via .env (LCV_RPC_URL=...)
+      # to point this faucet at a real network instead — e.g. lcv-testnet-1's
+      # public RPC. Only faucet supports this today: explorer's chain config is
+      # baked into its image at build time, and web's RPC URL is a Next.js
+      # build-time env var, so repointing either needs a rebuild, not just an
+      # env override — see DECISIONS.md.
+      LCV_RPC_URL: ${LCV_RPC_URL:-http://lcvd0:26657}
       LCV_BECH32_PREFIX: lcv
       FAUCET_DENOM: ulcv
     ports:
