@@ -2,6 +2,28 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-04 — RELEASE_CHECKLIST.md §4: nightly e2e resolved, cosmovisor rehearsal deferred, bug bounty policy confirmed
+
+Closed out §4's three remaining boxes.
+
+- **Nightly e2e workflow**: confirmed it's deliberately *not* meant to point at `lcv-testnet-1`
+  (see the 2026-08-04 entry above for the reasoning) — checked as resolved rather than left
+  open, since "should it be repointed" now has a definitive, reasoned "no."
+- **Cosmovisor upgrade rehearsal**: explicitly deferred, by choice, not by default. A real
+  rehearsal against `lcv-testnet-1` needs a new named upgrade handler (`v2` is already baked
+  into every binary this repo builds, so it can't demonstrate a fresh halt-and-swap) plus
+  another real governance proposal — the same ~48h constraint proposal #1 is already sitting
+  through. Asked rather than assumed, given a related question about compressing proposal #1's
+  timing had just come up in the same session; the answer was to skip it for now. The
+  *mechanism* itself remains verified (Phase H's local-devnet walkthrough:
+  submit → vote → pass → real halt → binary swap → resume) — this item is specifically about
+  re-demonstrating it against this particular network, not validating unproven code.
+- **Bug bounty policy**: confirmed still accurate as-is. `SECURITY.md`'s existing "no bug
+  bounty program... currently devnet/testnet-stage software, no real value at stake" framing
+  already correctly describes a single-validator bootstrap testnet — no text change needed,
+  just the explicit decision recorded here that it was reconsidered and reaffirmed, not
+  overlooked.
+
 ## 2026-08-04 — `explorer`/`web` repointing follow-up: build ARGs, verified against `lcv-testnet-1`
 
 Closed out the follow-up flagged in the entry below. Both needed real build-time plumbing

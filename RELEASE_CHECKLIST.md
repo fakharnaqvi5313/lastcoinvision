@@ -177,15 +177,15 @@ validator (recruiting one is a coordination problem, not something to fake).
 
 ## 4. Post-launch
 
-- [ ] Confirm the nightly e2e workflow (`.github/workflows/nightly-e2e.yml`) is pointed at
+- [x] Confirm the nightly e2e workflow (`.github/workflows/nightly-e2e.yml`) is pointed at
       the new network, not just `lcv-devnet`, if it's meant to monitor it continuously.
-      **Assessed, not changed (2026-08-04):** this workflow spins up its own disposable
+      **Resolved (2026-08-04):** it's not meant to — this workflow spins up its own disposable
       4-validator devnet on the CI runner to test the *current commit's code*, and tears it
       down at the end — it isn't testing a persistent network's health, so "pointing" it at
       `lcv-testnet-1` would conflate code-correctness CI with live-network monitoring (and
       risk spamming a real network with test transactions on every run). That's a genuinely
       different job than this one — `lcvd-monitor.timer` (see §2) is the actual live-network
-      monitoring piece.
+      monitoring piece. Left unchanged, deliberately.
 - [ ] Confirm cosmovisor's `upgrades/` staging process (see `scripts/upgrade/README.md`) is
       rehearsed against this specific network before the first real governance-triggered
       upgrade is proposed. Cosmovisor itself is now installed and supervising `lcvd.service`
@@ -193,8 +193,14 @@ validator (recruiting one is a coordination problem, not something to fake).
       already registered in the running binary (every binary this repo builds already has
       `v2` registered, so `v2` itself can't be used to demonstrate a real halt-and-swap on
       this network — see `scripts/upgrade/README.md`) plus a real governance proposal and
-      another ~48h wait. Not attempted this pass.
-- [ ] Revisit `SECURITY.md`'s "no bug bounty program" line — if launching to real external
-      validators/users, decide whether that's still accurate before publishing. Not decided —
-      this is a funding/commitment decision for the user, not something to resolve
-      unilaterally.
+      another real ~48h wait, the same constraint as proposal #1 (see §3 step 6). **Decision
+      (2026-08-04): skipped for now**, by explicit choice — not started. The mechanism itself
+      is already verified against a local devnet (Phase H's `submit-upgrade-proposal.sh`:
+      submit → vote → pass → real halt → binary swap → resume, confirmed end-to-end), so this
+      item is about re-demonstrating it on `lcv-testnet-1` specifically, not validating new
+      code — revisit whenever another real governance cycle is worth spending on it.
+- [x] Revisit `SECURITY.md`'s "no bug bounty program" line — if launching to real external
+      validators/users, decide whether that's still accurate before publishing. **Decision
+      (2026-08-04): still accurate, kept as-is.** `lcv-testnet-1` is a single-validator
+      bootstrap network with no real value at stake — `SECURITY.md`'s existing framing already
+      says exactly that. Revisit once real external validators/users exist.
