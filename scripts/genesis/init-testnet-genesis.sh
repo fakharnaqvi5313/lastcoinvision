@@ -106,6 +106,12 @@ echo "==> lcvd init ($CHAIN_ID, moniker $MONIKER)"
 "$LCVD" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$OUTPUT_DIR" --overwrite \
   > "$OUTPUT_DIR.init.log" 2>&1
 
+# Advertise this node's real reachable address so future peers can find it —
+# left blank by `lcvd init`, and RPC/API/gRPC/EVM all default to loopback
+# already (nothing else here needs to change for a public-facing node).
+sed_inplace() { sed -i.bak "$1" "$2" && rm -f "$2.bak"; }
+sed_inplace "s#^external_address = \"\"#external_address = \"${VALIDATOR_IP}:26656\"#" "$OUTPUT_DIR/config/config.toml"
+
 CANONICAL_GENESIS="$OUTPUT_DIR/config/genesis.json"
 
 echo "==> Patching $CANONICAL_GENESIS with the token allocation table + validator self-bond"
