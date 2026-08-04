@@ -744,3 +744,75 @@ exercise the "stranger" rejection branch — the interesting state space is the 
 of boolean preconditions, which Go's fuzzer explores far more thoroughly than a hand-written
 table of cases would.
 
+## GitHub Dependabot alert triage (post-launch, `lastcoinvision` repo)
+
+121 open Dependabot alerts on the live GitHub repo were triaged into fixed / accepted-deferred
+/ confirmed-non-issue buckets, prioritizing by actual reachability over raw alert count.
+
+**Fixed — Go module bumps (`chain/go.mod`, `chain/go.sum`):**
+- `google.golang.org/grpc` `1.79.2` → `1.82.1` (direct dependency; clears 1 critical + 1 high
+  CVE).
+- `github.com/go-jose/go-jose/v4` `4.1.3` → `4.1.4` (indirect, high).
+- `github.com/consensys/gnark-crypto` `0.18.0` → `0.18.1` (indirect, high).
+- `go` directive left at `1.25.0` (unchanged). Verified via `go build ./...` and `make test`
+  (all packages pass).
+
+**Accepted, deferred — `github.com/hashicorp/go-getter`:** a patch to `1.8.6` (from `1.7.9`,
+fixing a "high" finding) was attempted but not kept. `go-getter`'s newer release pulls in a
+substantial new transitive tree (AWS SDK v2, Google Cloud Storage client) and forces a Go
+toolchain switch, which is disproportionate for a dependency that's only indirectly reachable
+in `lcvd` — and repeatedly triggered local disk exhaustion during the bump attempt (see
+environment note below). `go mod tidy` settled the module graph back at `1.7.9` after the
+attempt; this was a deliberate choice, not an accident. Left as a tracked, open finding for a
+future pass rather than forced through under disk pressure.
+
+**Confirmed non-issues — not reachable in the compiled binary:** all 6 CRITICAL
+`golang.org/x/crypto` (ssh) findings, plus `docker/docker`, `docker/cli`, and `go-chi/chi`.
+Verified via `go list -deps ./cmd/lcvd/...` — none of these packages are actually imported by
+anything that ends up compiled into the `lcvd` binary; they're present in `go.sum` only for
+build reproducibility of dev/test tooling. No code change; documented so a future audit pass
+doesn't re-flag the same non-issue.
+
+**Fixed — `create-lcv-app` CLI scaffold templates** (`cli/templates/{voting-portal,
+gov-registry,dapp-cosmos,dapp-evm}`): all 4 templates bumped `next` `14.2.0` → `16.3.0`,
+`react`/`react-dom` `18.3.0` → `19.2.0`, and `@cosmjs/proto-signing`/`@cosmjs/stargate`
+`0.32.4` → `0.39.0`, clearing the same class of Next.js CVEs documented in the `web/` bump
+above. This surfaced two stacked, genuine build bugs under Next 16's Turbopack default (not
+present under Next 14/webpack), both root-caused rather than worked around:
+1. `sdk/tsup.config.ts` — the SDK's own build output imported `protobufjs/minimal` (via
+   ts-proto's generated code) without a file extension, which CJS `require()` tolerates but
+   Node's strict ESM resolver and Turbopack both reject. Fixed by adding
+   `noExternal: ["protobufjs"]` so tsup bundles it inline instead of leaving it as an external
+   bare import. Verified: raw Node ESM import succeeds, `grep -c "protobufjs/minimal\""
+   dist/index.js` is 0, and the SDK's full test suite (58 tests, 100% coverage) still passes.
+2. `cli/src/index.ts`'s new `patchNextConfigForMonorepoTesting` — Turbopack refuses to resolve
+   modules outside its detected project root, which breaks scaffolded templates only when
+   `@lastcoinvision/sdk` is linked in via a monorepo-local `file:` path (i.e. only during
+   dev/testing before the SDK is published to npm). Root-caused via Next's own
+   `config-shared.d.ts` (the documented `turbopack.root` option), fixed by patching
+   `next.config.mjs` with an absolute `turbopack.root` dynamically at scaffold time — kept out
+   of the committed template files themselves, since real end users installing a published
+   `@lastcoinvision/sdk` from npm never hit this path and shouldn't carry a hardcoded
+   monorepo-local absolute path. `experimental.externalDir: true` was also added to all 4
+   templates' committed `next.config.mjs` (harmless no-op for a normal npm dependency, but
+   required alongside `turbopack.root` for the monorepo-testing case). `dapp-evm`'s
+   pre-existing webpack-only alias workaround (unused Coinbase CDP `@x402/*` imports pulled in
+   by wagmi) was left in place — a no-op under Turbopack, but didn't cause any resurfaced
+   failure. Verified: all 4 templates pass `npm install`, typecheck, `npm run build`, and at
+   least one `npm run dev` smoke test.
+
+**Separate, unscoped finding — not fixed here:** `dapp-evm`'s `npm audit` additionally reports
+23 vulnerabilities (2 high) in the wagmi/viem/WalletConnect/Reown/axios/ws dependency chain.
+These are unrelated to the Next.js/React CVEs above and weren't visible to Dependabot in the
+first place (none of the 4 CLI templates ship a committed lockfile, so Dependabot can't see
+their transitive dependencies at all). Flagged as a distinct, out-of-scope finding for a
+future pass rather than folded into this fix silently.
+
+**Environment note:** the Go dependency bump attempts repeatedly exhausted local disk on this
+Mac (dropped as low as 26Mi during the `go-getter` bump attempt), causing a genuinely
+inconsistent `go.sum` (`go build ./...` failing with "missing go.sum entry" / "no such file or
+directory" errors from corrupted module-cache reads). Recovered via `go clean -cache` /
+`go clean -modcache` + `go mod tidy`. This is a recurring constraint of this specific
+development machine, unrelated to and does not affect the production VPS (which stayed stable
+at 80% used / 20G free throughout).
+

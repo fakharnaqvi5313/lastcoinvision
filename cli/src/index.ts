@@ -105,6 +105,32 @@ function writeProjectPackageJson(targetDir: string, projectName: string, monorep
   fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
+function patchNextConfigForMonorepoTesting(targetDir: string, monorepoSdkDir: string | undefined): void {
+  if (!monorepoSdkDir) return;
+  const configPath = path.join(targetDir, "next.config.mjs");
+  if (!fs.existsSync(configPath)) return;
+
+  // The file: link above resolves to a symlink pointing outside this
+  // project directory, into the monorepo. Turbopack (Next 16's default
+  // bundler) refuses to resolve modules outside its detected project
+  // root unless told the root explicitly — `experimental.externalDir`
+  // alone isn't sufficient. The shipped template only sets
+  // externalDir (a no-op for a real, npm-installed dependency); this
+  // root override is dev/testing-only, so it's injected here rather
+  // than hardcoded into a file every real consumer also gets.
+  const monorepoRoot = path.dirname(monorepoSdkDir);
+  const original = fs.readFileSync(configPath, "utf8");
+  if (original.includes("turbopack:")) return; // already has one, don't double-patch
+  const patched = original.replace(
+    /const nextConfig = \{/,
+    `const nextConfig = {\n  turbopack: { root: ${JSON.stringify(monorepoRoot)} },`,
+  );
+  if (patched === original) {
+    throw new Error(`Could not patch ${configPath} for monorepo-local testing (unexpected next.config.mjs shape)`);
+  }
+  fs.writeFileSync(configPath, patched);
+}
+
 function writeDefaultEnvFile(targetDir: string): void {
   const examplePath = path.join(targetDir, ".env.local.example");
   const targetPath = path.join(targetDir, ".env.local");
@@ -136,9 +162,11 @@ function main(): void {
   }
 
   const projectName = path.basename(targetDir);
+  const monorepoSdkDir = resolveMonorepoSdkDir();
   console.log(`Scaffolding "${args.template}" into ${targetDir} ...`);
   copyTemplate(args.template, targetDir);
-  writeProjectPackageJson(targetDir, projectName, resolveMonorepoSdkDir());
+  writeProjectPackageJson(targetDir, projectName, monorepoSdkDir);
+  patchNextConfigForMonorepoTesting(targetDir, monorepoSdkDir);
   writeDefaultEnvFile(targetDir);
 
   if (!args.skipInstall) {
