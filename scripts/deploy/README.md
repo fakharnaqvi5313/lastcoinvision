@@ -39,3 +39,30 @@ Uses the same `config.local.sh` as `deploy-web.sh`, plus two more vars: `REMOTE_
 and `DOCS_HEALTH_URL`. Assumes the one-time server setup already exists (nginx vhost +
 certbot SSL for `docs.lastcoinvision.com`) — this script only ships new site content, it
 never touches nginx config or SSL certs.
+
+## `deploy-faucet.sh` — faucet.lastcoinvision.com
+
+One-command deploy of `faucet/` to the production VPS: builds locally, syncs the build
+output + package manifests, installs production dependencies **on the server** (Node
+native deps shouldn't be rsynced cross-platform from macOS), and restarts the service.
+Never touches the server's `.env` — that holds the faucet's funded wallet mnemonic and is
+created once, by hand, on the server (never in this repo, never in `config.local.sh`).
+
+```bash
+./scripts/deploy/deploy-faucet.sh
+```
+
+Uses the same `config.local.sh`, plus `REMOTE_FAUCET_DIR` (currently `/home/deploy/faucet`)
+and `FAUCET_HEALTH_URL` (`/health`, a dedicated endpoint — the faucet doesn't serve
+anything at `/`). Assumes the one-time server setup already exists: nginx vhost + certbot
+SSL for `faucet.lastcoinvision.com`, and `/home/deploy/faucet/.env` already populated with
+`FAUCET_MNEMONIC` and the rest of `faucet/.env.example`'s settings.
+
+## `lcvd.service` / `faucet.service` — systemd units
+
+Not deploy scripts, but the systemd unit files installed once on the VPS for the
+`lcv-testnet-1` validator node and the faucet, referenced by `deploy-faucet.sh` (which
+restarts `faucet.service`) and by manual `systemctl restart lcvd.service` after shipping a
+new `lcvd` binary. `lcvd` is a real Cosmos SDK binary linking CosmWasm's `wasmvm`, which
+requires a matching native `libwasmvm.<arch>.so` on the target's linker path — see
+DECISIONS.md for how that's obtained and why it isn't just a `go build` cross-compile.

@@ -12,3 +12,6 @@ HEALTH_URL="https://lastcoinvision.com/"
 
 REMOTE_DOCS_DIR="/var/www/docs.lastcoinvision.com"       # static Docusaurus docroot, owned by deploy user
 DOCS_HEALTH_URL="https://docs.lastcoinvision.com/"
+
+REMOTE_FAUCET_DIR="/home/deploy/faucet"                  # faucet app dir; .env (FAUCET_MNEMONIC, etc.) lives here, created once by hand
+FAUCET_HEALTH_URL="https://faucet.lastcoinvision.com/health"

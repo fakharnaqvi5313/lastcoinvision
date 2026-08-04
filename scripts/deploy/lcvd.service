@@ -1,0 +1,17 @@
+[Unit]
+Description=LastcoinVision lcv-testnet-1 validator node
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/home/deploy/lcv-testnet-1
+ExecStart=/home/deploy/lcv-testnet-1/lcvd start --home /home/deploy/lcv-testnet-1/data
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+StandardOutput=append:/home/deploy/lcv-testnet-1/lcvd.log
+StandardError=append:/home/deploy/lcv-testnet-1/lcvd.log
+
+[Install]
+WantedBy=multi-user.target

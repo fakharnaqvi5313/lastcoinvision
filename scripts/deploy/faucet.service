@@ -1,0 +1,18 @@
+[Unit]
+Description=LastcoinVision testnet faucet
+After=network.target lcvd.service
+Wants=lcvd.service
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/home/deploy/faucet
+EnvironmentFile=/home/deploy/faucet/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/deploy/faucet/app.log
+StandardError=append:/home/deploy/faucet/app.log
+
+[Install]
+WantedBy=multi-user.target
