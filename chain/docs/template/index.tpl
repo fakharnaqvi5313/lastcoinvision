@@ -24,5 +24,5 @@
     </body>
 </html>
 Footer
-© 2022 GitHub, Inc.
+© 2026 LastcoinVision
 Footer navigation
