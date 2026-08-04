@@ -9,3 +9,6 @@ REMOTE_APP_DIR="/home/deploy/lastcoinvision-website"
 SERVICE_NAME="lastcoinvision"
 APP_PORT="3004"
 HEALTH_URL="https://lastcoinvision.com/"
+
+REMOTE_DOCS_DIR="/var/www/docs.lastcoinvision.com"       # static Docusaurus docroot, owned by deploy user
+DOCS_HEALTH_URL="https://docs.lastcoinvision.com/"

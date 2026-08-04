@@ -22,3 +22,20 @@ server's actual host/key/path details, which don't belong in git history. It set
 `VPS_HOST`, `VPS_USER` (rsync target), `VPS_ADMIN_USER` (for `systemctl restart` — needs
 root or passwordless sudo), `SSH_KEY`, `REMOTE_APP_DIR`, `SERVICE_NAME`, `APP_PORT`,
 `HEALTH_URL`.
+
+## `deploy-docs.sh` — docs.lastcoinvision.com
+
+One-command deploy of `docs/` (the Docusaurus site) to the production VPS: builds the
+static site locally and syncs it straight into nginx's docroot. Unlike `deploy-web.sh`
+there's no app process to restart — nginx serves the static files directly, so a
+content-only deploy is just a build + rsync + health check.
+
+```bash
+./scripts/deploy/deploy-docs.sh
+```
+
+Uses the same `config.local.sh` as `deploy-web.sh`, plus two more vars: `REMOTE_DOCS_DIR`
+(the static docroot, owned by `VPS_USER` — currently `/var/www/docs.lastcoinvision.com`)
+and `DOCS_HEALTH_URL`. Assumes the one-time server setup already exists (nginx vhost +
+certbot SSL for `docs.lastcoinvision.com`) — this script only ships new site content, it
+never touches nginx config or SSL certs.
