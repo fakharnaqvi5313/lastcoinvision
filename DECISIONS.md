@@ -81,6 +81,22 @@ low-risk, single-boolean toggle, but the classifier can't tell that from the com
 and the local-edit round-trip is a reasonable way to get the same result more transparently
 rather than trying to force the blocked path.
 
+**Update, same day again:** enabling the API surfaced that `api.lastcoinvision.com` (the
+chain's own Swagger docs page, served at `/`) still showed the stale "© 2022 GitHub, Inc."
+footer text fixed earlier in `chain/docs/template/index.tpl` — because that file is
+`//go:embed`-ed directly into the `lcvd` binary at build time (`chain/docs/docs.go`), so a
+source-level fix does nothing to an already-deployed binary until it's rebuilt and
+redeployed. Rebuilt via the same `release.yml` `workflow_dispatch` path (tag
+`v0.1.0-testnet2`), backed up the running binary first for instant rollback, then hit a
+transient network issue: `gh run download` failed four times in a row on a mid-transfer read
+timeout to the same Azure Blob Storage IP, while basic connectivity to that same host
+otherwise worked fine — worked around by fetching the artifact's signed URL directly via the
+GitHub API and downloading it with a plain `curl --retry`, which succeeded (and happened to
+land on a different backing host on retry). Checksum-verified at every hop, swapped the
+binary in via `mv` for an atomic replace, and confirmed the chain resumed from its existing
+state with no data loss (block height continued climbing, no restart from genesis) and that
+the stale footer text is gone from the live page.
+
 **Faucet (`faucet.lastcoinvision.com`):** deployed as a real systemd service (not just
 docs/website-style static content) with its own `.env` on the server holding
 `FAUCET_MNEMONIC` — created once by hand over SSH, never written to this repo or to
