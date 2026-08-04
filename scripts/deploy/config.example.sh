@@ -1,0 +1,11 @@
+# Copy to config.local.sh (gitignored) and fill in your VPS's real values.
+# Sourced by deploy-web.sh — plain shell variable assignments.
+
+VPS_HOST="203.0.113.10"                          # your VPS's IP or hostname
+VPS_USER="deploy"                                # owns the app's files on the VPS
+VPS_ADMIN_USER="root"                             # needs root or passwordless sudo for systemctl
+SSH_KEY="$HOME/.ssh/your_vps_key"
+REMOTE_APP_DIR="/home/deploy/lastcoinvision-website"
+SERVICE_NAME="lastcoinvision"
+APP_PORT="3004"
+HEALTH_URL="https://lastcoinvision.com/"

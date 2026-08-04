@@ -50,3 +50,6 @@ deploy/docker-compose/.devnet/
 
 # Local editor/tooling config, never shared
 .claude/
+
+# Real deploy target details (host/key/paths) — never committed
+scripts/deploy/config.local.sh
