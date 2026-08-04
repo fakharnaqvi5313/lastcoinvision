@@ -9,8 +9,10 @@ VPS, as a single, team-hosted bootstrap validator — this satisfies §3's "dry-
 among the launch coordinator's own validators first" step, nothing more. The genesis
 mechanics below are for real (production timing, real supply math, self-bond carved from
 the public allocation), but the six allocation addresses are still placeholders and no
-external validator has been onboarded — see DECISIONS.md for the full record. Checked boxes
-below reflect what's true of *this instance's mechanics*, not a fully launched network.
+external validator has been onboarded — see DECISIONS.md for the full record. Public RPC/API
+access exists (`rpc.lastcoinvision.com`, `api.lastcoinvision.com`) alongside
+`faucet.lastcoinvision.com`, all pointed at this same single validator. Checked boxes below
+reflect what's true of *this instance's mechanics*, not a fully launched network.
 
 ## 1. Genesis verification
 
