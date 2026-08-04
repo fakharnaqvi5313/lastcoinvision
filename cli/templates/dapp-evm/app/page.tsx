@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUnits } from "viem";
 import { useAccount, useBalance, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 
@@ -26,7 +27,10 @@ export default function Home() {
           <p>
             Address: <code>{address}</code>
           </p>
-          <p>Balance: {isBalanceLoading ? "loading..." : balance ? `${balance.formatted} ${balance.symbol}` : "—"}</p>
+          <p>
+            Balance:{" "}
+            {isBalanceLoading ? "loading..." : balance ? `${formatUnits(balance.value, balance.decimals)} ${balance.symbol}` : "—"}
+          </p>
           <button onClick={() => disconnect()}>Disconnect</button>
         </div>
       )}

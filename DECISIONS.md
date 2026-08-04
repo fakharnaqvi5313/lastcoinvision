@@ -801,12 +801,28 @@ present under Next 14/webpack), both root-caused rather than worked around:
    failure. Verified: all 4 templates pass `npm install`, typecheck, `npm run build`, and at
    least one `npm run dev` smoke test.
 
-**Separate, unscoped finding — not fixed here:** `dapp-evm`'s `npm audit` additionally reports
-23 vulnerabilities (2 high) in the wagmi/viem/WalletConnect/Reown/axios/ws dependency chain.
-These are unrelated to the Next.js/React CVEs above and weren't visible to Dependabot in the
-first place (none of the 4 CLI templates ship a committed lockfile, so Dependabot can't see
-their transitive dependencies at all). Flagged as a distinct, out-of-scope finding for a
-future pass rather than folded into this fix silently.
+**Fixed — `dapp-evm`'s wagmi/viem/WalletConnect chain:** the 23 `npm audit` findings (2 high)
+in the wagmi/viem/WalletConnect/Reown/axios/ws dependency chain (unrelated to the Next.js/React
+CVEs above, and never visible to Dependabot since none of the 4 CLI templates ship a committed
+lockfile) turned out to require a wagmi **major** bump, not a patch: `npm view wagmi` showed the
+vulnerable `@reown/appkit`/WalletConnect chain affects every wagmi 2.x release up through
+`3.5.0` — the latest 2.x line (`2.19.5`) is still vulnerable, only `3.6+` carries the fix (via
+`@wagmi/connectors@8.1.0`, up from the vulnerable `<=7.2.1` range). Bumped `wagmi` `2.12.0` →
+`3.7.0` and `viem` `2.21.0` → `2.55.0` (wagmi 3.x's peer range). Verified via a scratch install
+of just `wagmi`+`viem` (no template code) that the bump alone drops the vulnerable
+`@reown/appkit`/`@walletconnect/*` chain entirely — `npm audit` goes from 23 findings across 477
+resolved packages down to 0 findings across 50, confirming the whole WalletConnect connector
+tree (which this template's UI never actually uses — only `injected()`) is gone, not just
+patched. The major bump broke one real thing: wagmi 3's `useBalance` dropped the pre-formatted
+`balance.formatted` string from its return type, so `app/page.tsx` now formats it manually via
+viem's `formatUnits(balance.value, balance.decimals)`. Also removed `next.config.mjs`'s
+`@x402/core`/`@coinbase/cdp-sdk` webpack alias workaround (for `wagmi/connectors`' Coinbase
+`baseAccount` connector, which pulled those packages in transitively) — under `@wagmi/connectors@8.1.0`
+those packages are no longer in the dependency tree at all, confirmed via
+`node_modules/@coinbase`/`node_modules/@x402` both absent after install, so the alias was dead
+code referencing packages that no longer exist. Verified end-to-end: `npm install` (0
+vulnerabilities), `tsc --noEmit` clean, `npm run build` (Turbopack) succeeds, and a `npm run dev`
+smoke test renders the connect/balance UI without console errors.
 
 **Environment note:** the Go dependency bump attempts repeatedly exhausted local disk on this
 Mac (dropped as low as 26Mi during the `go-getter` bump attempt), causing a genuinely
