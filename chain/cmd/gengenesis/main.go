@@ -83,6 +83,9 @@ func main() {
 		publicAddr    = flag.String("public-addr", "", "public sale address (required)")
 		communityAddr = flag.String("community-addr", "", "community/airdrop address (required)")
 		devnetFastGov = flag.Bool("devnet-fast-gov", false, "shorten x/gov voting/deposit periods to seconds instead of days, for fast local governance testing (never use for a real testnet/mainnet genesis)")
+
+		validatorSelfBondAddr   = flag.String("validator-self-bond-addr", "", "if set (with -validator-self-bond-amount), fund this address for an initial validator's self-bond by carving the amount out of the public allocation, rather than minting it from outside the fixed 10B supply")
+		validatorSelfBondAmount = flag.String("validator-self-bond-amount", "", "self-bond amount in ulcv (required if -validator-self-bond-addr is set)")
 	)
 	flag.Parse()
 
@@ -90,6 +93,17 @@ func main() {
 		*investorsAddr == "" || *publicAddr == "" || *communityAddr == "" {
 		flag.Usage()
 		os.Exit(2)
+	}
+	if (*validatorSelfBondAddr == "") != (*validatorSelfBondAmount == "") {
+		exitf("-validator-self-bond-addr and -validator-self-bond-amount must be set together")
+	}
+	var selfBondAmount math.Int
+	if *validatorSelfBondAmount != "" {
+		var ok bool
+		selfBondAmount, ok = math.NewIntFromString(*validatorSelfBondAmount)
+		if !ok || !selfBondAmount.IsPositive() {
+			exitf("-validator-self-bond-amount %q is not a positive integer", *validatorSelfBondAmount)
+		}
 	}
 
 	var totalPct int64
@@ -199,7 +213,20 @@ func main() {
 			addAccount(addr, amount)
 		case "public":
 			addr := mustAddr(*publicAddr)
-			addAccount(addr, amount)
+			if selfBondAmount.IsNil() {
+				addAccount(addr, amount)
+				break
+			}
+			// Carve the initial validator's self-bond out of the public
+			// allocation instead of minting it from outside the fixed
+			// 10B supply: the public bucket still gets exactly its 8%
+			// minus what's pre-delegated to bootstrap the network, and
+			// the total supply invariant holds without a special case.
+			if selfBondAmount.GT(amount) {
+				exitf("-validator-self-bond-amount (%s) exceeds the entire public allocation (%s) — refusing to zero out or overdraw it", selfBondAmount, amount)
+			}
+			addAccount(addr, amount.Sub(selfBondAmount))
+			addAccount(mustAddr(*validatorSelfBondAddr), selfBondAmount)
 		case "community_airdrop":
 			addr := mustAddr(*communityAddr)
 			addAccount(addr, amount)
