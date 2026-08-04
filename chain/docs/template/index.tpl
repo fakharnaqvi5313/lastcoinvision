@@ -23,6 +23,3 @@
         </script>
     </body>
 </html>
-Footer
-© 2026 LastcoinVision
-Footer navigation
