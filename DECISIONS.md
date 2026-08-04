@@ -2,6 +2,92 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-04 — `lcv-testnet-1` launched as a single, team-hosted bootstrap validator
+
+Stage 1 of `RELEASE_CHECKLIST.md`: real (non-devnet) genesis tooling, and an actual running
+network on the production VPS — not just a plan. This is explicitly the runbook's "dry-run
+privately among the launch coordinator's own validators first" step, not a fully onboarded
+testnet; see the status note at the top of `RELEASE_CHECKLIST.md` for what is and isn't
+covered.
+
+**Genesis tooling (`chain/cmd/gengenesis`, `scripts/genesis/init-testnet-genesis.sh`):**
+`scripts/genesis/init-genesis.sh` (via `lcvd multi-node`) is devnet-only — it auto-funds
+each validator's self-bond from outside the fixed 10B supply, which the checklist correctly
+flags as unacceptable for a real network. Built a parallel path instead:
+- `gengenesis` gained `-validator-self-bond-addr`/`-validator-self-bond-amount` flags that
+  carve an initial validator's self-bond out of the *public* allocation bucket before
+  crediting it, rather than minting extra supply — the total-supply invariant holds without
+  a special case, and it's auditable directly in `genesis.json`.
+- `init-testnet-genesis.sh` drives the standard `lcvd init` → `gengenesis` → `genesis gentx`
+  → `genesis collect-gentxs` flow for a single validator (not `multi-node`), with none of the
+  devnet conveniences: no `--devnet-fast-gov` (real ~48h `x/gov` periods), no `timeout_commit`
+  override (real ~5s CometBFT default), no `enabled-unsafe-cors`. The six allocation-bucket
+  addresses are placeholders by default, each overridable via an env var
+  (`ECOSYSTEM_ADDR=...`, etc.) once real custody-controlled addresses exist — verified both
+  the placeholder-generation path and the override path work correctly.
+- Caught and fixed one real bug in the script before it ever reached a server: bash's
+  `${VAR:?message}` parses its message word for quoting *independently* of the outer double
+  quotes it's nested in, so an apostrophe in "validator's" silently broke the whole script's
+  syntax (`bash -n` reproduced it in isolation) — reworded rather than escaped, and re-learned
+  that macOS's default `/bin/bash` is the ancient pre-4.0 3.2 with no `declare -A`, which the
+  script also had to route around (parallel name-lookup lists instead, done previously
+  elsewhere in this repo for the same reason).
+- Verified the whole thing by actually starting the generated genesis locally before ever
+  touching the VPS: real block production, `10000000000` LCV exact total supply, correct
+  gov/mint params, and the validator showing `BOND_STATUS_BONDED` with exactly its self-bond
+  amount.
+
+**Deploying the actual binary surfaced a second real bug, this one already latent in
+`chain/Dockerfile`:** `lcvd` links CosmWasm's `wasmvm`, which requires a matching native
+`libwasmvm.<arch>.so` on the runtime's library path — a `go build` alone produces a binary
+that dynamically links against it and fails at startup with `error while loading shared
+libraries: libwasmvm.x86_64.so: cannot open shared object file` if that `.so` isn't present
+separately. `chain/Dockerfile` never copies this file into its runtime image and — per the
+2026-08-03 docker-compose entry below — was never actually run end-to-end in this
+environment (only built), so this was a real, previously-undiscovered gap, not a new
+regression. Fixed for this deployment by downloading the matching precompiled
+`libwasmvm.x86_64.so` directly from `CosmWasm/wasmvm`'s GitHub release for the exact pinned
+version (`v3.0.7`, matching `chain/go.mod`), checksum-verified against upstream, and placed
+at `/usr/lib/x86_64-linux-gnu/` on the VPS. **`chain/Dockerfile` likely has this same bug and
+should be fixed separately** — flagged here rather than fixed now since it's out of scope
+for this pass and deserves its own verification (an actual `docker run`, not just `docker
+build`).
+
+**The native linux/amd64 binary itself** came from `.github/workflows/release.yml` via
+`workflow_dispatch` (creates a draft GitHub release, not a public one) rather than
+cross-compiling from macOS — `wasmvm`'s prebuilt native library per platform/arch is exactly
+why that workflow already builds natively per-OS/arch runner instead of setting
+`GOOS`/`GOARCH` by hand (see the workflow's own comment). Downloaded the `linux_amd64`
+artifact directly from the completed build job without waiting for the release-publish job,
+verified its sha256 against the job's own checksum file.
+
+**VPS provisioning:** `/home/deploy/lcv-testnet-1/` (binary + node home), a new `lcvd.service`
+systemd unit (same pattern as the existing `lastcoinvision.service`/`faucet.service`), and
+`ufw allow 26656/tcp` for P2P (RPC/API/gRPC/EVM JSON-RPC all default to loopback-only already
+— nothing else needed opening). No `rpc.lastcoinvision.com`/`api.lastcoinvision.com` DNS
+records exist yet, so there is currently no public RPC/API/explorer access to this network —
+only P2P (for future validators) and whatever the faucet reaches over `localhost`. Adding
+those subdomains (and their nginx/certbot setup) is a clear, cheap next step once DNS is
+pointed.
+
+**Faucet (`faucet.lastcoinvision.com`):** deployed as a real systemd service (not just
+docs/website-style static content) with its own `.env` on the server holding
+`FAUCET_MNEMONIC` — created once by hand over SSH, never written to this repo or to
+`config.local.sh`. Funded its wallet with 100,000 LCV via a bank-send from the placeholder
+`community_airdrop` bucket, broadcast from a local machine through an SSH tunnel to the
+VPS's loopback-only RPC (so the community bucket's placeholder private key never had to
+leave my machine or touch the VPS). Verified genuinely end-to-end, not just "service is up":
+issued a real `POST /faucet` request against the live HTTPS endpoint and confirmed the
+recipient's on-chain balance actually increased by the drip amount.
+
+**What this explicitly is not:** a fully onboarded testnet. Still open, unchanged by today's
+work: the six allocation addresses are placeholders; there is exactly one validator, hosted
+by the same party running the faucet/website (no external validator has gone through
+`RELEASE_CHECKLIST.md` §2's onboarding — no HSM, no sentry topology, `keyring-backend test`);
+no professional security audit has happened (`AUDIT_SCOPE.md` still says none has); and
+`rpc.`/`api.` subdomains don't exist yet. See `RELEASE_CHECKLIST.md`'s updated status note
+and checkboxes for the precise, itemized state.
+
 ## 2026-08-03 — CosmWasm contracts need a `wasm-opt` post-processing step on this Rust toolchain
 
 Completing Phase D's reference contracts (`contracts/cosmwasm/consent-registry`,
