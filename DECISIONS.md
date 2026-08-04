@@ -2,6 +2,38 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-04 — `explorer`/`web` repointing follow-up: build ARGs, verified against `lcv-testnet-1`
+
+Closed out the follow-up flagged in the entry below. Both needed real build-time plumbing
+rather than a runtime env var, since neither reads its target network at runtime:
+
+- **`explorer`**: added a new `explorer/config/lcv-testnet-1.json` (same schema as the existing
+  `lcv-devnet.json`, real values: `chain_name: "lcv-testnet-1"`,
+  `api: ["https://api.lastcoinvision.com"]`, `rpc: ["https://rpc.lastcoinvision.com"]`). The
+  Dockerfile now takes a `CHAIN_CONFIG` build ARG (default `lcv-devnet.json`, unchanged
+  behavior) naming which file under `config/` to copy into ping.pub's `chains/testnet/` and
+  `chains/mainnet/` — previously hardcoded to `lcv-devnet.json`. `docker-compose.yml`'s
+  `explorer` service passes it through via `build.args`.
+- **`web`**: the Dockerfile now declares `ARG NEXT_PUBLIC_LCV_RPC_URL=http://localhost:26657`
+  and sets it as `ENV` before `npm run build`, so Next.js inlines whatever value is passed in
+  instead of whatever `.env.local` happens to be sitting in the local working directory when
+  someone runs `docker compose build` (a real, if minor, existing fragility — no `.dockerignore`
+  existed for `web/` before this, so `.env.local` would silently get copied into the build
+  context via `COPY . .` if present). Added `web/.dockerignore` to make that exclusion explicit
+  regardless, and `docker-compose.yml`'s `web` service passes the ARG through the same way.
+
+**Verified both for real**, not just "should work": built `explorer` with
+`CHAIN_CONFIG=lcv-testnet-1.json`, ran it standalone (`--no-deps`), confirmed `/lcv-testnet-1`
+returns 200 and — since ping.pub's Vite build bundles chain JSON directly into its compiled JS
+rather than serving it as a separate static file — grepped the actual served bundle for both
+`rpc.lastcoinvision.com` and `api.lastcoinvision.com` and found them. Same pattern for `web`:
+built with `NEXT_PUBLIC_LCV_RPC_URL=https://rpc.lastcoinvision.com`, ran standalone, and found
+`rpc.lastcoinvision.com` baked into `.next/static/chunks/*.js`. Neither check trusted "the
+build succeeded" as proof — both confirmed the *specific value* actually landed in the compiled
+output.
+
+`deploy/k8s/` (the other manifest set this checklist item names) was not attempted this pass.
+
 ## 2026-08-04 — `deploy/docker-compose/`'s faucet service verified against `lcv-testnet-1`; explorer/web found not (yet) repointable
 
 While waiting out the real 48h governance window from the entry below, picked up the one

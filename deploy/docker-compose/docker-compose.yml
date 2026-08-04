@@ -69,10 +69,9 @@ services:
     environment:
       # Defaults to the bundled local devnet; override via .env (LCV_RPC_URL=...)
       # to point this faucet at a real network instead — e.g. lcv-testnet-1's
-      # public RPC. Only faucet supports this today: explorer's chain config is
-      # baked into its image at build time, and web's RPC URL is a Next.js
-      # build-time env var, so repointing either needs a rebuild, not just an
-      # env override — see DECISIONS.md.
+      # public RPC. faucet reads this at runtime, so a plain env override is
+      # enough — unlike explorer/web below, which bake their target network
+      # into the image at build time and need a rebuild instead.
       LCV_RPC_URL: ${LCV_RPC_URL:-http://lcvd0:26657}
       LCV_BECH32_PREFIX: lcv
       FAUCET_DENOM: ulcv
@@ -85,6 +84,13 @@ services:
     build:
       context: ../../explorer
       dockerfile: Dockerfile
+      args:
+        # Which config/*.json to bundle — a build-time choice (ping.pub's
+        # chain config is baked into the static build), not a runtime env
+        # var. Defaults to the bundled local devnet; set in .env
+        # (CHAIN_CONFIG=lcv-testnet-1.json) and rebuild
+        # (docker compose build explorer) to point at a real network instead.
+        CHAIN_CONFIG: ${CHAIN_CONFIG:-lcv-devnet.json}
     ports:
       - "8090:80"
     depends_on:
@@ -94,5 +100,11 @@ services:
     build:
       context: ../../web
       dockerfile: Dockerfile
+      args:
+        # Also a build-time choice — Next.js inlines NEXT_PUBLIC_* vars into
+        # the client bundle at build time. Defaults to the bundled local
+        # devnet; set in .env and rebuild (docker compose build web) to
+        # point at a real network's public RPC instead.
+        NEXT_PUBLIC_LCV_RPC_URL: ${NEXT_PUBLIC_LCV_RPC_URL:-http://localhost:26657}
     ports:
       - "3000:3000"

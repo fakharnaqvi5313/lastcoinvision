@@ -1,0 +1,16 @@
+{
+  "chain_name": "lcv-testnet-1",
+  "api": ["https://api.lastcoinvision.com"],
+  "rpc": ["https://rpc.lastcoinvision.com"],
+  "sdk_version": "0.53.6",
+  "coin_type": "118",
+  "min_tx_fee": "500",
+  "addr_prefix": "lcv",
+  "assets": [
+    {
+      "base": "ulcv",
+      "symbol": "LCV",
+      "exponent": "6"
+    }
+  ]
+}

@@ -149,18 +149,19 @@ validator (recruiting one is a coordination problem, not something to fake).
    would defeat the point of using production timing in the first place). Re-check
    `lcvd query gov proposal 1` after that time and re-run the registry/taxrail/voting
    acceptance flows against `lcv-testnet-1` with the community address (now the bootstrapped
-   authority for all three) once it has. **`docker compose up` against this network,
-   `faucet` service only (2026-08-04):** verified — `LCV_RPC_URL` is now a `.env`-overridable
-   variable (was hardcoded to the bundled devnet), built and ran just the `faucet` container
-   (`docker compose up --no-deps faucet`) pointed at `https://rpc.lastcoinvision.com`, and
-   confirmed a real `POST /faucet` request moved real funds on `lcv-testnet-1` (same test
-   address's balance went 10→20 LCV across two independently-run faucet instances). `explorer`
-   and `web` were **not** verified this pass — both bake their chain endpoint in at Docker
-   build time (`explorer`'s `chains/*/lcv-devnet.json` is `COPY`-ed into the image; `web`'s
-   `NEXT_PUBLIC_LCV_RPC_URL` is a Next.js build-time env var Next.js inlines into the client
-   bundle) rather than reading it from a runtime env var like `faucet` does, so repointing
-   either at a different network needs real Dockerfile/build-arg changes, not just a `.env`
-   edit — a legitimate follow-up, left open rather than forced through.
+   authority for all three) once it has. **`docker compose up` against this network — all
+   three of faucet/explorer/web now verified (2026-08-04):** `faucet`'s `LCV_RPC_URL` is a
+   `.env`-overridable runtime variable; `explorer` and `web` needed real build-time changes
+   instead (`CHAIN_CONFIG` and `NEXT_PUBLIC_LCV_RPC_URL` build ARGs respectively, since both
+   bake their target network into the image at build time — a static ping.pub chain-config
+   JSON for `explorer`, a Next.js env var inlined into the client bundle for `web`), now added
+   to their Dockerfiles and wired through `docker-compose.yml`'s `build.args`. All three built
+   and ran standalone (`--no-deps`, skipping the bundled `lcvd0-3` devnet) pointed at
+   `lcv-testnet-1`'s public endpoints: `faucet` moved real funds on-chain (confirmed via a
+   balance query); `explorer`'s `/lcv-testnet-1` route returned 200 with
+   `rpc.lastcoinvision.com`/`api.lastcoinvision.com` confirmed baked into its compiled JS
+   bundle; `web`'s built output likewise confirmed `rpc.lastcoinvision.com` baked into its
+   static chunks. `deploy/k8s/` (the other half of this checklist item) was not attempted.
 7. **Confirm the security posture**: `SECURITY.md`'s reporting channel is live and monitored,
    the findings in `AUDIT_SCOPE.md` are still accurate for this network's actual genesis
    parameters (rates, periods, etc. — not just the devnet defaults this document was written
