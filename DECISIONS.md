@@ -729,10 +729,14 @@ specifically re-check the ante/fee-handling path for the same pattern — see `A
   issue, so this was done via `curl` instead of the browser tool).
 - `docs/`: already on the latest available Docusaurus 3.x (`3.10.2`); its remaining findings
   (`webpack-dev-server`, `sockjs`, `serialize-javascript`, `uuid`) are Docusaurus's own
-  vendored dev-server/build tooling with no newer upstream release — `npm audit fix` (without
-  `--force`) confirmed no version bump is currently available. Dev-server-only; never present
-  in the deployed static site output. Documented as an accepted, tracked upstream gap rather
-  than force-installing an unreleased fix.
+  vendored dev-server/build tooling — `npm audit fix` (without `--force`) reported no version
+  bump available at the time, since Docusaurus's `copy-webpack-plugin`/`css-minimizer-webpack-plugin`
+  (pulling `serialize-javascript`) and `webpack-dev-server`'s `sockjs` (pulling `uuid`) pin
+  those as internal implementation details, not part of their public API surface. Dev-server-only;
+  never present in the deployed static site output. **Update, see the Dependabot triage section
+  below:** patched majors for both (`serialize-javascript` 6→7, `uuid` 8→11) were later forced in
+  via npm `overrides`, since neither package's newer major changes anything the pinning plugins
+  actually call.
 
 **Fuzz tests** (Go native `go test -fuzz`, run just over 5 minutes each, all clean — see
 `AUDIT_SCOPE.md` for what each one checks): `FuzzMsgTaxedTransfer` (34,806 execs / 323s),
@@ -823,6 +827,90 @@ those packages are no longer in the dependency tree at all, confirmed via
 code referencing packages that no longer exist. Verified end-to-end: `npm install` (0
 vulnerabilities), `tsc --noEmit` clean, `npm run build` (Turbopack) succeeds, and a `npm run dev`
 smoke test renders the connect/balance UI without console errors.
+
+## Triage of the remaining 33 alerts (post-fix rescan)
+
+After the fixes above landed, GitHub's Dependabot count dropped from 121 to 33. Each of the 33
+was individually triaged (not batch-assumed) via `go list -deps ./cmd/lcvd/...` for reachability
+and the GitHub Advisory API for patch availability — several conclusions from the earlier pass
+needed correcting once checked at this level of precision.
+
+**Fixed — `github.com/shamaton/msgpack/v2` (high, DoS):** reachable in the compiled `lcvd`
+binary (`app → CosmWasm/wasmd/x/wasm → CosmWasm/wasmvm/v3/types → shamaton/msgpack/v2`, confirmed
+via `go mod why`). CVE-2026-32284: the decoder doesn't validate buffer length on truncated fixext
+data (format codes `0xd4`–`0xd8`), causing an out-of-bounds read/panic — a real DoS since wasmvm
+decodes msgpack from contract-controlled input. Dependabot listed no `first_patched_version` (the
+advisory metadata hadn't been curated with a fix version), so patch availability was verified
+directly against upstream: `v2.4.1`'s release notes ("Backport ext frame bounds validation to
+v2... Adds regression tests for truncated ext and timestamp payloads") match the advisory's
+description exactly, confirming it's the fix commit despite the advisory itself not saying so.
+Bumped `v2.2.3` → `v2.4.1`. Verified: `go build ./...` and the full `go test ./...` suite both
+clean.
+
+**Fixed — `esbuild` (low, dev-server arbitrary file read on Windows) across `cli/`, `faucet/`,
+`sdk/`:** vulnerable range `>=0.27.3, <0.28.1`, patched at `0.28.1`. Not directly depended on —
+pulled in transitively by `tsup`/`vitest`/`vite`, all of which declare `"esbuild": "^0.27.0"`
+(npm's caret treats 0.x specially: that range is `>=0.27.0 <0.28.0`, so it can never resolve to
+the patched `0.28.1` on its own). Forced via npm `overrides: { "esbuild": "^0.28.1" }` in all
+three packages' `package.json`. Low severity and dev-server-only (esbuild's own dev server, never
+part of the shipped build output), but the override was cheap and fully verified: `npm install` →
+0 vulnerabilities in all three, and each package's real build/typecheck/test command still passes
+(`sdk`: `npm run build` + `npm run test:coverage`, 58/58 tests, 100% coverage; `cli` and `faucet`:
+`npm run build` + `npm run typecheck`).
+
+**Fixed — `serialize-javascript` and `uuid` in `docs/`:** superseding the "no version bump
+available" conclusion from the earlier audit pass (see the corrected paragraph above) —
+`npm audit fix` without `--force` doesn't consider major bumps, but both packages had one
+available and safe to force: `serialize-javascript` `6.0.2` → `7.0.5` (pinned by
+`copy-webpack-plugin`/`css-minimizer-webpack-plugin` inside `@docusaurus/bundler`) and `uuid`
+`8.3.2` → `11.1.1` (pinned by `webpack-dev-server`'s `sockjs` dependency). Both are internal
+implementation details of those plugins (not part of Docusaurus's own API surface), so the major
+version bumps were low-risk to force via `overrides`. Verified: `npm install` → 0 vulnerabilities,
+and `npm run build` succeeds with static files generated (the build's pre-existing
+`../../DECISIONS.md`-link warnings are unrelated broken-link noise, unchanged from before this
+fix).
+
+**Deferred — `github.com/pion/dtls/v2` (medium, AES-GCM nonce/key-leak risk, CVE-2026-26014):**
+reachable (`app → cosmos/evm/x/vm/keeper → go-ethereum/{eth/tracers, internal/ethapi, p2p, p2p/nat}
+→ pion/stun/v2 → pion/dtls/v2`) — go-ethereum's own devp2p NAT-traversal code, pulled in
+transitively via `cosmos/evm`, not something this repo imports directly. Checked the advisory
+directly rather than trusting the vulnerable-range string alone: it covers **every** `v2` release
+including the latest (`v2.2.12`) — the fix only ever shipped in `pion/dtls/v3` (patched at
+`v3.0.11`/`v3.1.1`). `v3` is an import-path-changing major version with an incompatible API;
+go-ethereum's `p2p/nat` package imports `v2` directly, so this isn't a `go get` bump we can make
+unilaterally — it requires go-ethereum (via `cosmos/evm`) to migrate first. Left open and tracked;
+revisit when `cosmos/evm` picks up a go-ethereum release built against `pion/dtls/v3`.
+
+**Deferred, unchanged — `github.com/pion/stun/v2` (medium):** re-confirmed no newer release
+exists at all (`go list -m -versions` still tops out at `v2.0.0`, its original 2022 release) —
+same conclusion as the earlier investigative pass, nothing new to act on.
+
+**Deferred, unchanged — `github.com/hashicorp/go-getter` (high):** unchanged from the earlier
+documented decision above (dependency-bloat/disk-risk tradeoff).
+
+**Confirmed non-issues, refined — `golang.org/x/crypto` (13 findings) and `golang.org/x/net`
+(1 finding):** the earlier "not reachable at all" conclusion for `x/crypto` was too coarse; a
+precise `go list -deps` pass shows the *package* is reachable, but only through non-SSH
+primitive subpackages actually used for cryptography elsewhere in the app (`argon2`, `bcrypt`,
+`blake2b`/`blake2s`, `chacha20`/`chacha20poly1305`, `curve25519`, `hkdf`, `nacl/box`,
+`nacl/secretbox`, `pbkdf2`, `sha3`, etc.). All 13 flagged CVEs are specifically in
+`golang.org/x/crypto/ssh` (agent-forwarding constraint bypass, FIDO/U2F presence-check bypass,
+`CertChecker` panic, AES-GCM packet decryption underflow, and similar) — cross-checked each
+advisory's summary against the reachable subpackage list, and `ssh` never appears in it. Same
+pattern for `x/net`: the package is reachable (`http2`, `idna`, `netutil`, etc., pulled in by the
+gRPC/HTTP stack), but the flagged CVE is specifically in `golang.org/x/net/html` (the HTML
+parser), which isn't reachable — nothing in `lcvd` parses HTML. Both confirmed non-issues, no code
+change, but documented with the corrected subpackage-level precision so a future pass trusts the
+package-level "reachable" signal correctly instead of over- or under-reading it.
+
+**Confirmed non-issues, unchanged — `docker/docker`, `docker/cli`, `go-chi/chi/v5`:** re-verified
+absent from `go list -deps ./cmd/lcvd/...` entirely (zero matches), consistent with the earlier
+finding.
+
+**Remaining after this pass:** `pion/dtls/v2`, `pion/stun/v2`, and `go-getter` stay open as
+tracked, deferred findings (no safe fix available without a disproportionate or unilateral
+upstream change); the 13 `x/crypto` + 1 `x/net` findings and the 3 Docker/go-chi findings are
+confirmed non-issues requiring no action.
 
 **Environment note:** the Go dependency bump attempts repeatedly exhausted local disk on this
 Mac (dropped as low as 26Mi during the `go-getter` bump attempt), causing a genuinely
