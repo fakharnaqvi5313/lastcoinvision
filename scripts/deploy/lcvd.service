@@ -6,7 +6,11 @@ After=network.target
 Type=simple
 User=deploy
 WorkingDirectory=/home/deploy/lcv-testnet-1
-ExecStart=/home/deploy/lcv-testnet-1/lcvd start --home /home/deploy/lcv-testnet-1/data
+Environment=DAEMON_NAME=lcvd
+Environment=DAEMON_HOME=/home/deploy/lcv-testnet-1/data
+Environment=DAEMON_ALLOW_DOWNLOAD_BINARIES=false
+Environment=DAEMON_RESTART_AFTER_UPGRADE=true
+ExecStart=/home/deploy/lcv-testnet-1/cosmovisor run start --home /home/deploy/lcv-testnet-1/data
 Restart=always
 RestartSec=5
 LimitNOFILE=65536

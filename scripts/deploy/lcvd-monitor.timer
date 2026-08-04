@@ -1,0 +1,10 @@
+[Unit]
+Description=Run lcvd-monitor.service every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=lcvd-monitor.service
+
+[Install]
+WantedBy=timers.target

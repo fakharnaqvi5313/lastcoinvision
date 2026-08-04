@@ -1,0 +1,10 @@
+[Unit]
+Description=lcv-testnet-1 validator liveness/signing-rate check
+After=lcvd.service
+
+[Service]
+Type=oneshot
+User=deploy
+ExecStart=/home/deploy/lcv-testnet-1/lcvd-monitor.sh
+StandardOutput=append:/home/deploy/lcv-testnet-1/monitor.log
+StandardError=append:/home/deploy/lcv-testnet-1/monitor.log

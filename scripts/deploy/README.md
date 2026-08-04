@@ -66,3 +66,19 @@ restarts `faucet.service`) and by manual `systemctl restart lcvd.service` after 
 new `lcvd` binary. `lcvd` is a real Cosmos SDK binary linking CosmWasm's `wasmvm`, which
 requires a matching native `libwasmvm.<arch>.so` on the target's linker path — see
 DECISIONS.md for how that's obtained and why it isn't just a `go build` cross-compile.
+
+`lcvd.service` runs the node under `cosmovisor` (`cosmovisor run start`), not `lcvd start`
+directly — see `scripts/upgrade/README.md` for how cosmovisor's binary-swap-at-upgrade-height
+mechanism works. `$DAEMON_HOME/cosmovisor/genesis/bin/lcvd` is cosmovisor's own copy of the
+binary; shipping a new non-consensus-breaking build (e.g. a docs/UI fix) still means
+replacing that file specifically, not `/home/deploy/lcv-testnet-1/lcvd` (which nothing reads
+anymore once cosmovisor is in place — kept only as a convenient reference copy).
+
+## `lcvd-monitor.sh` / `.service` / `.timer` — missed-block/signing-rate check
+
+A systemd timer (every 5 minutes) that queries the validator's own `slashing signing-info`
+and `staking validators` status and logs a `WARNING` line if missed blocks approach
+x/slashing's 50-of-100 jailing threshold, or if the validator isn't `BOND_STATUS_BONDED`.
+Not a real alerting stack (no external paging channel exists for this project yet) — logs to
+`/home/deploy/lcv-testnet-1/monitor.log`, so `grep WARNING` there (or via `journalctl -u
+lcvd-monitor.service`) is a manual but real early-warning check for now.

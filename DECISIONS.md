@@ -2,6 +2,101 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-04 — RELEASE_CHECKLIST.md §2/§3/§4: cosmovisor, monitoring, and real governance-gated acceptance testing
+
+Working through the rest of the release checklist against the live `lcv-testnet-1` bootstrap
+validator (see the entry below for how it was launched), item by item, doing what's genuinely
+actionable and being explicit about what isn't.
+
+**§2 Validator onboarding — cosmovisor + monitoring, the two items that don't need a second
+validator:**
+- Cross-compiled `cosmovisor` for linux/amd64 (`GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go
+  install`) — unlike `lcvd` itself, cosmovisor has no CGO/`wasmvm` dependency, so a plain
+  cross-compile works fine without needing another CI round-trip. Checksum-verified,
+  laid out `$DAEMON_HOME/cosmovisor/genesis/bin/lcvd`, and switched `lcvd.service` to
+  `cosmovisor run start` instead of `lcvd start` directly. Confirmed via the process tree
+  (`cosmovisor` as parent, `lcvd` as its supervised child) and continued block production
+  after the restart. Retroactive, not "before first start" as the checklist literally asks —
+  this validator predates today's work on this item — but every block from here on is
+  upgrade-ready, which is what actually matters going forward. Future non-consensus-breaking
+  binary swaps (like the docs.go fix in the entry below) now need to replace
+  `$DAEMON_HOME/cosmovisor/genesis/bin/lcvd`, not the top-level convenience copy — noted in
+  `scripts/deploy/README.md` so this isn't rediscovered the hard way later.
+- Added `lcvd-monitor.sh` + a `.service`/`.timer` pair (every 5 minutes): queries
+  `slashing signing-info` and `staking validators` status, logs a `WARNING` line if missed
+  blocks approach x/slashing's real 50-of-100 jailing threshold (confirmed via
+  `query slashing params`: `signed_blocks_window=100`, `min_signed_per_window=0.5`) or the
+  validator isn't `BOND_STATUS_BONDED`. Explicitly not a real alerting stack — no external
+  paging channel exists for this project — just a log line, `grep`-checkable now and wireable
+  to something real later.
+- Everything else in §2 (hardware, HSM, sentry topology, multi-validator gentx collection)
+  genuinely doesn't apply to a single self-hosted bootstrap validator and isn't something to
+  fake — left open in the checklist with the reason stated inline, rather than silently
+  skipped or force-checked.
+
+**§3 step 6 acceptance-criteria re-verification — real transactions against `lcv-testnet-1`,
+not `lcv-devnet`:**
+- `x/identity`'s flow verified fully end-to-end: `tx identity create-did --from community`
+  (broadcast, checksum-confirmed included at height 1364 with a real
+  `lcv.identity.EventDIDCreated` event), then `query identity did-by-address --address=...`
+  returned the exact DID document back. (One false alarm along the way: the query briefly
+  appeared to fail with "no DID for this address" — turned out to be an empty shell variable
+  in my own test script from a dropped subshell, not a chain bug; re-ran with the address
+  written out literally and it worked immediately.)
+- `x/registry`'s `RegisterAsset`, `x/taxrail`'s `RegisterTaxRule`, and `x/voting`'s
+  `CreateElection` all gate their real entry point behind a one-time bootstrap message
+  (`SetJurisdictionAuthority`, `RegisterTaxRule` itself, `AddElectoralAuthority` respectively)
+  that checks `msg.Authority == k.GetAuthority()` — the gov module's own account address by
+  Cosmos SDK convention (confirmed: `lcv10d07y265gmmuvt4z0w9aw880jnsr700jhgrhwp`). These can
+  only be executed by a passed governance proposal, and `lcv-testnet-1` has a real 48-hour
+  voting period (deliberately, per §1) — there is no way to finish verifying these three
+  modules' acceptance flows without either waiting out that real window or shortening
+  governance timing, which would undermine the entire point of using production timing.
+  Rather than skip this or fake a result, submitted a real proposal (id 1) bundling all three
+  authority-bootstrap messages plus a `lcvfeemarket` `MsgUpdateParams` (identical param
+  values — the point is exercising the gov-to-param-change path itself, which the checklist
+  explicitly names, not changing the params) assigning the new authorities to the
+  already-locally-controlled `community` allocation address so the downstream flows can
+  actually be exercised once it passes. Funded the validator's own operator account (which
+  had zero liquid balance — its entire self-bond went straight to staking at genesis) with a
+  small bank-send so it could pay gas, then voted yes with its full self-bond weight (the only
+  bonded stake on the network). Confirmed via `query gov tally`: 1,000,000 LCV yes, 0 everything
+  else. The proposal is in `PROPOSAL_STATUS_VOTING_PERIOD` and will pass and execute
+  automatically at **2026-08-06T17:40:52Z**. This is the honest current state — not "verified"
+  and not "failed," genuinely in-flight, documented in `RELEASE_CHECKLIST.md` with exactly
+  what to check after that time.
+- `docker compose up` against this specific network (the other half of step 6) wasn't
+  attempted this pass — flagged as still open rather than silently dropped.
+
+**§3 step 7 — `AUDIT_SCOPE.md` accuracy:** re-read it specifically checking for
+network-parameter-dependent claims (specific rates, periods, gas targets) that might have
+gone stale between devnet and `lcv-testnet-1`'s real production timing — found none.
+`AUDIT_SCOPE.md`'s actual content is entirely code-level (gosec/staticcheck/fuzz results,
+design limitations like `x/voting`'s lack of ballot secrecy), which applies identically
+regardless of a given deployment's genesis parameters, and `lcv-testnet-1` runs the same
+audited code (the only binary change since was the cosmetic docs.go embed fix, unrelated to
+anything in scope). Verified, no changes needed.
+
+**§4 — nightly e2e workflow assessed, not repointed:** `.github/workflows/nightly-e2e.yml`
+spins up its own disposable 4-validator devnet on the CI runner via `make devnet` to smoke-test
+the *current git commit*, then tears it down (`make localnet-stop`) — it was never testing a
+persistent network's health in the first place. Repointing it at `lcv-testnet-1` would
+conflate two genuinely different jobs (does-this-commit's-code-work vs. is-the-live-network-
+healthy) and risk firing real test transactions at a live network on every scheduled run.
+Left as-is; `lcvd-monitor.timer` (§2) is the actual live-network health check.
+
+**§4 — cosmovisor upgrade rehearsal, not attempted:** would need a genuinely new named
+upgrade handler, since every binary this repo builds already has `v2` registered (see
+`scripts/upgrade/README.md` — the same constraint `submit-upgrade-proposal.sh` works around
+locally by building a special "pre-v2" binary) — `v2` itself can't demonstrate a real
+halt-and-swap against `lcv-testnet-1` for the same reason. Doing this properly means adding a
+real `v3` (or similar) upgrade handler to the codebase and running the whole governance cycle
+again on real timing. Left open rather than attempted partially.
+
+**§4 — bug bounty policy, not decided:** `SECURITY.md`'s "no bug bounty program" line is a
+funding/commitment decision, not an engineering one — left for the user to decide, not
+resolved unilaterally.
+
 ## 2026-08-04 — `lcv-testnet-1` launched as a single, team-hosted bootstrap validator
 
 Stage 1 of `RELEASE_CHECKLIST.md`: real (non-devnet) genesis tooling, and an actual running
