@@ -2,6 +2,64 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Triaged 26 new Dependabot alerts on `chain/go.mod`
+
+All 26 were Go (`chain/go.mod`), none in the Node packages. Same methodology as the prior
+121-alert round: cross-checked package-level reachability with `go list -deps ./cmd/lcvd/`
+against the real shipped binary, then additionally ran `govulncheck` (call-graph level, not
+just package level) for a stronger signal on the packages that mattered — a step beyond what
+the prior round did.
+
+**Bumped (real or free fixes):**
+- `golang.org/x/crypto` v0.50.0 → v0.54.0, `golang.org/x/net` v0.53.0 → v0.57.0,
+  `github.com/hashicorp/go-getter` v1.7.9 → v1.8.6, `github.com/go-chi/chi/v5` v5.2.2 → v5.3.1,
+  `github.com/docker/docker` v27.0.0 → v28.5.2, `github.com/docker/cli` v26.1.4 → v29.7.1.
+- `go-getter`'s bump was the one with real teeth: `govulncheck` confirmed a genuinely reachable
+  call chain (`cosmossdk.io/x/upgrade`'s binary-download path → `getter.Client.Get`, real
+  vulnerability GO-2026-5058). Its own v1.8.6 upgraded its S3/GCS backends from `aws-sdk-go` v1
+  to `aws-sdk-go-v2`, which is why this one bump pulled in a much larger dependency subtree
+  (`aws-sdk-go-v2/*`, `cloud.google.com/go/storage`, etc.) — accepted, since the alternative is
+  leaving a real, reachable vulnerability unpatched. `go.mod`'s `go` directive also had to move
+  1.25.0 → 1.25.8 to satisfy go-getter's own minimum; harmless here since CI's
+  `go-version-file: chain/go.mod` reads whatever this file says rather than a hardcoded pin.
+- `golang.org/x/net`'s real reachable finding per `govulncheck` was actually a different CVE
+  (GO-2026-5026, `idna.ToASCII`, called from `app.New`) than the one Dependabot flagged
+  (an `x/net/html` parser DoS) — the `html` subpackage itself is confirmed unused
+  (`go list -deps` shows it's not in the binary). Same fix either way.
+- `docker/docker`, `docker/cli`, `go-chi/chi/v5`: confirmed **not compiled into `lcvd` at all**
+  — pulled in only via `tools/tools.go`'s `//go:build tools`-gated blank import of
+  `bufbuild/buf`, which itself is invoked in `Makefile`'s `proto-gen` target via a separately
+  version-pinned `go install github.com/bufbuild/buf/cmd/buf@v1.50.0` — meaning the version of
+  these three packages recorded in `go.mod` doesn't even affect which version of `buf`
+  actually runs. Bumped anyway since it was free (verified `go build ./...` and
+  `go test ./...` both still pass) and it closes the alerts, but this was zero real risk either
+  way.
+- `golang.org/x/crypto`'s specific Dependabot findings (13 alerts, all `x/crypto/ssh`:
+  FIDO/U2F bypass, auth bypass via unenforced revocation, deadlocks, etc.) are confirmed
+  **not reachable** — only `x/crypto/bcrypt` is imported (via cosmos-sdk's keyring), not `ssh`.
+  Bumped anyway since it was free.
+
+**Confirmed reachable but no upstream fix exists yet — documented as accepted risk:**
+- `github.com/pion/dtls/v2` (Dependabot #4) and `github.com/pion/stun/v2` (Dependabot #31):
+  both genuinely compiled into `lcvd`, pulled in via `go-ethereum`'s `p2p/nat` package
+  (a `cosmos/evm` transitive dependency). `govulncheck` confirms `pion/dtls` is call-graph
+  reachable (GO-2026-4479, no patched version). Practical risk is low: `lcvd` uses CometBFT for
+  P2P, not `go-ethereum`'s own devp2p networking — this code is linked into the binary but not
+  on any path `lcvd` actually exercises at runtime, though that hasn't been proven with the
+  same rigor as the reachability check itself (no dedicated test forces this code to run and
+  confirm it's truly dead in practice, so treat "not on any exercised path" as a inference, not
+  a demonstrated fact). No further action possible until either project ships a fix.
+
+**One thing found that wasn't in Dependabot's 26 at all:** `govulncheck` additionally flagged
+`golang.org/x/crypto/openpgp` (`armor` package, GO-2026-5932 — openpgp is unmaintained/unsafe
+by design) as reachable via `cmd.Execute`. No fix exists (package is deprecated upstream, not
+patched). Not part of this triage's scope since it wasn't one of the 26 alerts asked about, but
+flagged here rather than silently discovered and dropped — worth its own look at what in
+`cmd.Execute`'s call chain actually needs `armor` and whether that usage is load-bearing.
+
+Verified end-to-end: `go build ./...`, `go build ./cmd/lcvd/`, and the full `go test ./...`
+suite (19 packages) all pass clean after the bump.
+
 ## 2026-08-05 — `gengenesis`: Incentivized Testnet (ITN) reward vesting, extending the self-bond carve-out pattern
 
 A Gemini-authored ITN blueprint was shared for review. Agreed with the core mechanics
