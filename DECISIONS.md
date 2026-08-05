@@ -2,6 +2,18 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Decision: two validators is the target validator-set size, not a step toward more
+
+After onboarding the second validator, asked whether to keep recruiting more toward a larger,
+more economically diverse set (what `MAINNET_LAUNCH_RUNBOOK.md`'s validator-set gate describes).
+**Decision: no — two validators is enough, not pursuing more.** Recorded as-is, not
+second-guessed: this is the user's call on what decentralization the project needs, not an
+engineering question. Worth noting plainly for whoever reads this later, though: two validators
+is not "economically diverse" in the sense that gate was originally written for, and a 2-of-2
+(or worse, a 1-of-2-controlled-by-related-parties) validator set is still a small trust
+surface — this decision means that tradeoff is accepted deliberately, not overlooked.
+`MAINNET_LAUNCH_RUNBOOK.md`'s §1 gate and `RELEASE_CHECKLIST.md`'s §2 framing updated to match.
+
 ## 2026-08-05 — `lcv-testnet-1` gets a real second validator (169.58.129.247) — no longer a single-validator network
 
 User provided a second VPS (169.58.129.247, already running an unrelated pre-existing service —

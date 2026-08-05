@@ -23,13 +23,15 @@ re-checked immediately before anyone treats §2 as actionable — don't let it g
       single-key, one-machine placeholders (see DECISIONS.md, 2026-08-05). `public`'s address
       is also blocked on deciding an actual distribution mechanism — the address is secondary
       to that decision, not the other way around.
-- [ ] **A real, independent, economically diverse validator set is recruited and onboarded**,
-      each meeting §2 of `RELEASE_CHECKLIST.md` (dedicated hardware, HSM/remote-signer-backed
-      consensus keys, sentry-node topology — now verified working end-to-end via `deploy/k8s/`,
-      2026-08-05 — or an equivalent non-k8s setup). `lcv-testnet-1` today is one team-hosted
-      bootstrap node; that satisfies "dry run privately," nothing more. A mainnet with one
-      validator, or a handful all controlled by the same people, isn't decentralized — it's a
-      single point of failure with extra steps.
+- [ ] **The validator set meets §2 of `RELEASE_CHECKLIST.md`** (dedicated hardware,
+      HSM/remote-signer-backed consensus keys, sentry-node topology — now verified working
+      end-to-end via `deploy/k8s/`, 2026-08-05 — or an equivalent non-k8s setup).
+      `lcv-testnet-1` has two independently-operated validators as of 2026-08-05 (a real second
+      operator, not a second copy of the first) — **decided (2026-08-05) that two is the target
+      size, not a step toward a larger set.** Recorded as-is: that's a deliberate, accepted
+      tradeoff on decentralization, not an oversight — see the same-day DECISIONS.md entry. What
+      this gate still needs regardless of count: both validators meeting the hardware/HSM/sentry
+      bar below, not just existing.
 - [ ] **Legal and regulatory review of the tokenomics is complete**, with real counsel, before
       any real value is at stake. Nothing in this repo constitutes that review.
 - [ ] **A real bug bounty program is live**, or a documented decision that mainnet launches

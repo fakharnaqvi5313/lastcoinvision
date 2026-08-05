@@ -31,10 +31,13 @@ infrastructure from the first — real full-node sync from the live genesis, a f
 key (never shared with the first validator), and a real `MsgCreateValidator` transaction.
 Verified via the public API: both validators show `BOND_STATUS_BONDED` and both appear in the
 live consensus set. Still very small (9 LCV self-bond vs. the first validator's 1,000,000 —
-matching stake wasn't the point; a second genuinely independent operator is), and still not
-"a real, independent, economically diverse validator set" in the sense `MAINNET_LAUNCH_RUNBOOK.md`
-means — but the "one bootstrap validator" framing above is no longer accurate. See the
-same-day DECISIONS.md entry for the full record, including a real mistake (an operator-key
+matching stake wasn't the point; a second genuinely independent operator is). **Decided
+(2026-08-05): two validators is the target size** — not a step toward recruiting a larger,
+more economically diverse set. Recorded as-is, not second-guessed; still worth being plain
+that a 2-validator set is a small trust surface by any standard reading of "decentralized," and
+this decision accepts that tradeoff deliberately. The "one bootstrap validator" framing above is
+no longer accurate either way. See the same-day DECISIONS.md entry for the full record,
+including a real mistake (an operator-key
 mnemonic briefly leaked into this session's transcript, caught and corrected immediately by
 discarding that key) and a real bug found in `lcvd-monitor.sh` once a second validator existed
 to expose it.
@@ -101,12 +104,11 @@ final.
 **Most of this still doesn't apply to `lcv-testnet-1`'s two current validators** — both run on
 shared VPSes with plaintext `test`-backend keys and no sentry topology, which is fine for
 bootstrap-stage nodes but not what this section describes overall. The second validator
-(169.58.129.247, onboarded 2026-08-05) is at least independently-operated infrastructure from
-the first, which is a real step toward the "real, independent, economically diverse validator
-set" this section is ultimately about — but neither validator individually closes any of the
-hardware/HSM/sentry items below. The items below marked
-done are genuinely done for this validator; the rest stay open for the first *real* external
-validator (recruiting one is a coordination problem, not something to fake).
+(169.58.129.247, onboarded 2026-08-05) is independently-operated infrastructure from the
+first — real, not faked — but **two is the decided target size** (2026-08-05, see
+DECISIONS.md), not a step toward a larger set. Neither validator individually closes any of
+the hardware/HSM/sentry items below; the items marked done are genuinely done for each
+validator that has them, the rest stay open regardless of count.
 
 - [ ] Hardware meets the baseline in
       [`docs/docs/validator-handbook.md`](docs/docs/validator-handbook.md#hardware) (no
