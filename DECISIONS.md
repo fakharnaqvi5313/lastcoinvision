@@ -2,6 +2,17 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — `lcv-testnet-1`'s validator stays on its single VPS for now, not migrated to `deploy/k8s/`
+
+Now that `deploy/k8s/`'s 3-sentry topology is verified end-to-end (see the entry below), asked
+whether to actually migrate the live bootstrap validator onto it. **Decision: no, stay on the
+single VPS for now.** Reasoning: this validator is real, live, and publicly reachable —
+migrating it means real downtime risk and moving its actual `priv_validator_key.json` for a
+network that has no real value at stake yet, purely to close a checklist item early. The
+topology itself doesn't need to be re-verified again when it's actually needed (a real second
+validator, or a deliberate migration with its own maintenance window) — this is a sequencing
+choice, not new technical debt.
+
 ## 2026-08-05 — Fixed 2 new Dependabot alerts introduced by the go-getter bump; re-triaged the remaining 7
 
 Checking back on the 26-alert round from earlier today: GitHub's re-scan caught up and

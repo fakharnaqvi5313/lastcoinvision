@@ -92,9 +92,15 @@ validator (recruiting one is a coordination problem, not something to fake).
       gentx and the consensus key (`priv_validator_key.json`, which *should* live on the
       validator host) were deployed.
 - [ ] Sentry-node topology in place before the validator ever connects to a public network —
-      see [`deploy/k8s/README.md`](deploy/k8s/README.md) for the reference 3-sentry topology,
-      or the equivalent for a non-k8s deployment. Not in place — this validator's P2P is
-      directly reachable, a known/accepted tradeoff for a single bootstrap node, not a fix.
+      see [`deploy/k8s/README.md`](deploy/k8s/README.md) for the reference 3-sentry topology
+      (verified end-to-end against a local cluster on 2026-08-05 — see DECISIONS.md), or the
+      equivalent for a non-k8s deployment. Not in place — this validator's P2P is directly
+      reachable, a known/accepted tradeoff for a single bootstrap node, not a fix. **Decision
+      (2026-08-05): stay on the single VPS for now.** Migrating this specific, live, publicly
+      reachable validator onto the sentry topology would mean real downtime risk and moving its
+      actual consensus key for a network with no real value at stake yet — deferred by choice,
+      not blocked on anything technical. The topology itself is ready to use whenever a real
+      migration (or a genuinely new validator) is worth doing.
 - [x] `cosmovisor` installed and configured (`scripts/upgrade/cosmovisor-setup.sh`) *before*
       first start, so the validator is upgrade-ready from block 1. Installed retroactively
       (2026-08-04, after first start, since this validator predates this checklist item being
