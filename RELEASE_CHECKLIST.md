@@ -42,9 +42,12 @@ final.
       module account, see the same-day DECISIONS.md entry) and are recorded in
       `scripts/genesis/allocation-addresses.local.sh` (gitignored, real values) /
       `.example.sh` (committed template), ready for the next real genesis construction.
-      `treasury` and `ecosystem` were generated on one machine for now and are earmarked for a
-      proper separated-signer multisig ceremony before mainnet — this box stays unchecked
-      until that's done and a real genesis actually uses these addresses.
+      `treasury` and `ecosystem` are now cosmos-sdk native multisig addresses (4-of-6 and
+      3-of-5) rather than single keys — **but the 11 underlying signer keys were still all
+      generated on one machine** (no real co-signers available yet), so this isn't a real
+      multisig from a security standpoint either, just a step closer in form. This box stays
+      unchecked until `treasury`/`ecosystem` go through a real ceremony with genuinely separate
+      signers, and until a real genesis actually uses these addresses.
 - [x] **Total supply is exactly 10,000,000,000 LCV** (`10_000_000_000_000_000 ulcv`) — sum
       every genesis balance and confirm it, don't sample. Verified on `lcv-testnet-1`'s
       genesis.json (2026-08-04).

@@ -2,6 +2,32 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Treasury/ecosystem multisig ceremony, run on one machine (explicitly not final)
+
+Asked whether real, separate co-signers were available to do a genuine multisig ceremony for
+`treasury`/`ecosystem`. **They weren't yet** — explicit choice to proceed on one machine anyway,
+same caveat as the single-key addresses for the other four buckets: this is not a real multisig
+from a security standpoint (one machine compromise = the whole threshold), just
+placeholder-but-real-format addresses to unblock the tooling, clearly flagged to redo with
+genuinely separate signers before mainnet.
+
+Generated 11 signer keys in an isolated keyring (`~/.lcvd-multisig-ceremony`,
+`--keyring-backend test`, separate from the other buckets' keyring) — 6 for `treasury`, 5 for
+`ecosystem` — then derived the two multisig addresses with `lcvd keys add --multisig=... --multisig-threshold=...`:
+`treasury` at 4-of-6, `ecosystem` at 3-of-5 (matching the thresholds suggested earlier the same
+day). Verified both resulting addresses with `lcvd debug addr` before recording them. Even
+though this session ran the commands directly (at explicit request, rather than the operator
+running them locally), the actual mnemonic output was redirected straight to local files and
+never displayed in this conversation — the same principle as the "never pasted into chat"
+guidance given earlier, just executed by a different party this time.
+
+Updated `scripts/genesis/allocation-addresses.local.sh`: `TREASURY_ADDR` and `ECOSYSTEM_ADDR`
+now point at the two multisig addresses instead of the single-key placeholders generated
+earlier the same day. The 11 underlying signer keys aren't wasted — they can become individual
+signers' own keys in a real, separated ceremony later. `TEAM_ADDR`/`INVESTORS_ADDR`/
+`PUBLIC_ADDR`/`COMMUNITY_ADDR` are unchanged. Still does not touch `lcv-testnet-1`'s frozen
+genesis.
+
 ## 2026-08-05 — Real allocation addresses generated for all 6 non-module buckets
 
 Confirmed `staking_rewards` (12%) needs no address at all — `x/emission` already draws it as a
