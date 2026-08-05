@@ -161,7 +161,12 @@ validator (recruiting one is a coordination problem, not something to fake).
    balance query); `explorer`'s `/lcv-testnet-1` route returned 200 with
    `rpc.lastcoinvision.com`/`api.lastcoinvision.com` confirmed baked into its compiled JS
    bundle; `web`'s built output likewise confirmed `rpc.lastcoinvision.com` baked into its
-   static chunks. `deploy/k8s/` (the other half of this checklist item) was not attempted.
+   static chunks. **Update (2026-08-05):** `deploy/k8s/` was then verified separately, end to
+   end, against a local `kind` cluster with Calico installed (needed for `NetworkPolicy`
+   enforcement, which kind's default CNI doesn't provide) — see the same-day DECISIONS.md
+   entry for the full walkthrough (this also caught and fixed a real bug: `chain/Dockerfile`
+   was missing `libwasmvm.<arch>.so`, the same class of bug found on the VPS deployment
+   earlier, but never actually fixed in the Dockerfile itself until now).
 7. **Confirm the security posture**: `SECURITY.md`'s reporting channel is live and monitored,
    the findings in `AUDIT_SCOPE.md` are still accurate for this network's actual genesis
    parameters (rates, periods, etc. — not just the devnet defaults this document was written

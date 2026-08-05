@@ -3,11 +3,13 @@
 Reference Kubernetes manifests for running one LCV validator behind 3 sentry nodes — the
 architecture documented in
 [the validator handbook](../../docs/docs/validator-handbook.md#sentry-node-architecture).
-**These manifests are unexecuted reference infrastructure**: this environment has no live
-cluster to test `kubectl apply` against (`kubectl` client is present, no context is
-configured), so treat this as a correct starting point to adapt to your cluster/cloud
-provider, not a push-button deploy. YAML structure was checked with a local parser, not a
-running API server.
+**Verified end-to-end against a local `kind` cluster (2026-08-05)**, with Calico installed
+(kind's default CNI doesn't enforce `NetworkPolicy` at all, so the security-critical part of
+this topology can't be checked without swapping it in) and a resource/image overlay applying
+just for that test — real values are still yours to fill in (a published `genesis.json`, real
+offline-generated keys, your registry's image path, hardware-appropriate `resources:`), so
+treat this as a correct, exercised starting point to adapt to your cluster/cloud provider, not
+a push-button deploy. See the 2026-08-05 DECISIONS.md entry for exactly what was checked.
 
 ## Topology
 

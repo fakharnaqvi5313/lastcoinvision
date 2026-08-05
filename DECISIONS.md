@@ -2,6 +2,60 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — `deploy/k8s/` verified end-to-end against a local `kind` cluster; found and fixed a real `chain/Dockerfile` bug in the process
+
+`deploy/k8s/`'s manifests had been "correct on paper" reference infrastructure since Phase H —
+never actually applied to a running cluster. Verified properly this time:
+
+**Found a real, previously-flagged-but-unfixed bug first.** The 2026-08-03/04 VPS deployment
+entries below already documented that `lcvd` dynamically links CosmWasm's `wasmvm` and needs
+its own native `libwasmvm.<arch>.so` on the runtime's library path, and flagged
+`chain/Dockerfile` as "likely has this same bug... deserves its own verification (an actual
+`docker run`, not just `docker build`)" — deferred at the time. Checked it now: `docker build`
+succeeded, but `docker run lcv-lcvd:local version` failed with exactly the predicted
+`error while loading shared libraries: libwasmvm.x86_64.so`. Fixed properly (not by a manual
+GitHub-release download this time, since that had to be redone by hand for the VPS): the
+`wasmvm` Go module ships prebuilt `libwasmvm.<arch>.so` files directly inside its own module
+cache (`internal/api/`), so `chain/Dockerfile`'s build stage now copies the one already fetched
+by `go mod download` straight into the runtime image — it can never drift from whatever version
+`go.mod` pins, unlike a separate download that has to be updated by hand on every `wasmvm` bump.
+Re-verified: `docker run lcv-lcvd:local version --long` now runs cleanly and prints the full
+dependency list; `start --help` works. This also transitively fixes `docker-compose`'s
+`lcvd0-3` services, which were built from the same broken Dockerfile.
+
+**Then verified the actual `deploy/k8s/` topology.** kind's default CNI (`kindnetd`) does not
+enforce `NetworkPolicy` at all — since the validator's public-P2P isolation is the one
+genuinely security-relevant thing this topology exists to prove, testing against the default
+CNI would have "verified" nothing load-bearing. Recreated the cluster with
+`networking.disableDefaultCNI: true` and installed Calico instead. Applied the real manifests
+via `kubectl apply -k`, with only a local, uncommitted kustomize overlay layered on top to swap
+the placeholder `lcv-lcvd:latest` image for the locally-built one and shrink the
+production-sized `resources:`/`storage:` requests (4 CPU/32Gi per pod, 500Gi PVCs — accurate
+production baselines, not something to weaken in the committed manifests, just impossible to
+schedule on a laptop) down to something a local cluster can actually run. Genesis and all 4
+node identities (1 validator + 3 sentries) were generated for real with `lcvd init`/`gentx`/
+`collect-gentxs` exactly as an operator would, then loaded via `kubectl create secret/configmap`
+per the README's own guidance (imperative, never committed to a manifest).
+
+**All 4 pods came up and the topology behaved exactly as designed:**
+- Real block production, height climbing, identical `app_hash` across the validator and a
+  sentry — StatefulSet's default `OrderedReady` pod management brought sentry-0/1/2 up
+  sequentially, all reached `Ready`.
+- `lcv-rpc` (backed by sentries, not the validator) answered a real client's `/validators` query
+  correctly: the single bootstrap validator, bonded, with its exact self-bond voting power.
+- **The security-critical check**: a plain pod with no special label, given the validator pod's
+  IP directly, timed out (`curl` exit 28) hitting its P2P port — `NetworkPolicy` genuinely
+  blocked it, not just accepted by the API server as valid YAML. Confirmed the positive case
+  too: the validator's own `config.toml` shows `persistent_peers` containing exactly the 3
+  sentries by stable in-cluster DNS name and nothing else, `pex = false` — matching
+  `configmap-entrypoint.yaml`'s intent exactly, enforced at both the application layer and (via
+  Calico) the network layer.
+
+Cluster, image, and all generated test keys/genesis were deleted after verification — nothing
+about this test is persistent or committed beyond the `chain/Dockerfile` fix and this entry.
+`deploy/k8s/README.md` and `RELEASE_CHECKLIST.md` §3 step 6 updated to reflect this is now
+verified, not just written.
+
 ## 2026-08-05 — Triaged 26 new Dependabot alerts on `chain/go.mod`
 
 All 26 were Go (`chain/go.mod`), none in the Node packages. Same methodology as the prior
