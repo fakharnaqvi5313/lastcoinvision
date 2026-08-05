@@ -2,6 +2,31 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Site-wide link/stale-data audit: found and fixed the homepage's dead live-stats strip
+
+Asked to check the rest of the site for issues similar to the explorer/roadmap/RPC-table
+finds. Crawled every page's links (home, developers, governments, technology, token, roadmap,
+blog + all 3 posts, brand) and checked each unique href's HTTP status — everything resolved
+cleanly except one already-known, by-design case: `faucet.lastcoinvision.com`'s root path
+404s because it's a pure JSON API with no HTML UI at all (documented as such in
+`faucet/README.md`) — a real UX gap for a human clicking "Testnet faucet" from the site, but a
+product decision (build a UI vs. link elsewhere), not something to fix unilaterally. Flagged,
+not changed.
+
+**Found one more real bug**: the homepage's "Live devnet stats" strip
+(`web/components/DevnetStats.tsx` / `web/lib/devnetStats.ts`) reads
+`NEXT_PUBLIC_LCV_RPC_URL`, which defaults to `http://localhost:26657` — and
+`scripts/deploy/deploy-web.sh` never set it, so every real visitor to the live production site
+was silently getting `http://localhost:26657` baked into their browser bundle, which always
+fails, always showing "Live devnet stats unavailable right now — run `make devnet` locally" on
+the actual production homepage. Confirmed `lcv-testnet-1`'s real RPC has
+`Access-Control-Allow-Origin: *` (so a browser-side cross-origin fetch from
+`lastcoinvision.com` would work fine) before fixing. Rebuilt with
+`NEXT_PUBLIC_LCV_RPC_URL=https://rpc.lastcoinvision.com` and fixed `deploy-web.sh` itself to
+set this by default (overridable via env var) so future redeploys don't regress it. Verified
+live with a real browser: the strip now shows the real chain ID, a real climbing block height,
+and the real validator count instead of the dead fallback message.
+
 ## 2026-08-05 — `explorer.lastcoinvision.com` deployed for real; found and fixed a real ping.pub config bug in the process
 
 Checking the `/developers` page's RPC table surfaced a dead link: `explorer.lastcoinvision.com`

@@ -35,7 +35,13 @@ source "$CONFIG_FILE"
 ssh_cmd() { ssh -i "$SSH_KEY" -o BatchMode=yes "$VPS_ADMIN_USER@$VPS_HOST" "$@"; }
 
 echo "==> Building web/ (production standalone output)"
-(cd "$WEB_DIR" && rm -rf .next && npm run build)
+# NEXT_PUBLIC_LCV_RPC_URL is inlined into the client bundle at build time
+# (Next.js convention for NEXT_PUBLIC_* vars) -- without it the homepage's
+# live-stats strip silently falls back to localhost:26657 in every real
+# visitor's browser and always shows "unavailable" (see DECISIONS.md,
+# 2026-08-05). Pointed at the real public testnet RPC by default here;
+# override by exporting NEXT_PUBLIC_LCV_RPC_URL before running this script.
+(cd "$WEB_DIR" && rm -rf .next && NEXT_PUBLIC_LCV_RPC_URL="${NEXT_PUBLIC_LCV_RPC_URL:-https://rpc.lastcoinvision.com}" npm run build)
 
 echo "==> Assembling standalone output (public/ + .next/static/)"
 cp -r "$WEB_DIR/public" "$WEB_DIR/.next/standalone/public"
