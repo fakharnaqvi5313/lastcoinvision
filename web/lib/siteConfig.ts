@@ -42,4 +42,8 @@ export const siteConfig = {
     grpc: "localhost:9090",
     evmRpc: "http://localhost:8545",
   },
+  testnetEndpoints: {
+    rpc: "https://rpc.lastcoinvision.com",
+    rest: "https://api.lastcoinvision.com",
+  },
 } as const;

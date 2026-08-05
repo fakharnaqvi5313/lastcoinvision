@@ -105,9 +105,9 @@ const params = await identity.params();`}
               <tr>
                 <td className="px-4 py-3 font-medium text-navy-900 dark:text-white">Testnet</td>
                 <td className="px-4 py-3 font-mono text-xs">{siteConfig.chainIds.testnet}</td>
-                <td className="px-4 py-3 text-navy-500 dark:text-navy-400" colSpan={3}>
-                  Not yet public — see the roadmap.
-                </td>
+                <td className="px-4 py-3 font-mono text-xs">{siteConfig.testnetEndpoints.rpc}</td>
+                <td className="px-4 py-3 font-mono text-xs">{siteConfig.testnetEndpoints.rest}</td>
+                <td className="px-4 py-3 text-navy-500 dark:text-navy-400">Not yet public</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 font-medium text-navy-900 dark:text-white">Mainnet</td>
