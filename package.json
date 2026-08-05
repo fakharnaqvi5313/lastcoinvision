@@ -1,0 +1,23 @@
+{
+  "name": "lastcoinvision",
+  "private": true,
+  "packageManager": "npm@11.16.0",
+  "description": "Root workspace for LCV's wallet effort (wallet-core, ui-tokens, tx-builders, desktop, mobile). The chain itself is built via the root Makefile, not this file — this only wires up the new JS/TS packages plus the pre-existing sdk/ package.",
+  "workspaces": [
+    "sdk",
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

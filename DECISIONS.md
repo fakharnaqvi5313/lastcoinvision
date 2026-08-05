@@ -2,7 +2,87 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
-## 2026-08-05 — A revised "v6" audit PDF surfaced; decoded its QR code for a second, independent verification channel
+## 2026-08-06 — Started the LCV wallet app: root monorepo + `packages/wallet-core` (Phase 0 & 1)
+
+Kicked off a new, explicitly-scoped multi-phase effort (plan at decision time:
+Phase 0 repo plumbing, Phase 1 `wallet-core`, Phase 2 security review, Phase 3 desktop/Tauri,
+Phase 4 mobile/React Native, Phase 5 app-store compliance, Phase 6 mainnet-readiness) to build a
+custom LCV-branded, non-custodial wallet for Android/iOS/macOS/Windows/Linux, rather than
+relying solely on Keplr/MetaMask. Phases 0 and 1 are done and verified; the rest are not started.
+
+**Phase 0**: added a root `package.json` (npm workspaces: `sdk`, `packages/*`, `apps/*`) +
+`turbo.json`. `sdk/`'s own `package-lock.json` was removed as redundant now that it's a
+workspace member (dependency resolution happens via the root lockfile) — `sdk/`'s source and
+behavior are otherwise untouched, confirmed by its existing 58 tests still passing unmodified.
+`web/`, `cli/`, `faucet/`, `docs/`, `explorer/` stay independent, not joined to the workspace.
+New `packages/ui-tokens` ports `web/tailwind.config.ts`'s navy/accent color scales into plain TS
+objects (there was no portable, non-Tailwind token format before), with a regression test
+asserting the two stay in sync by hand.
+
+**Phase 1**: new `packages/wallet-core` — the framework-agnostic key generation, dual (Cosmos +
+EVM) HD derivation, and encrypted-keystore package that everything else (desktop, mobile) will
+build on. This repo had zero mnemonic-generation/keystore code before this; every prior mnemonic
+usage (faucet, `sdk/examples/*-node.ts`) read one from an env var and handed it straight to
+CosmJS.
+
+- One mnemonic derives two genuinely different, independent addresses by design: Cosmos
+  (`m/44'/118'/0'/0/0`, `DirectSecp256k1HdWallet`) and EVM (`m/44'/60'/0'/0/0`, viem's
+  `mnemonicToAccount`) — matching the pre-existing documented limitation in
+  `modules/evm/SPEC.md` and `sdk/src/wallets/keplr.ts` that Keplr- and MetaMask-style
+  derivations from the same mnemonic never match. Every UI built on this package must show both
+  addresses explicitly, never implied as one account — enforced today by a regression test that
+  fails if the two paths are ever accidentally aligned.
+- **Deviated from the original plan's stated approach on the keystore's crypto primitives.**
+  The plan called for reusing `@cosmjs/crypto`'s `Argon2id`/`Xchacha20poly1305Ietf`. Discovered
+  during implementation that both are marked `@deprecated` ("will likely be removed") in the
+  installed `@cosmjs/crypto` version. Building new, long-lived wallet crypto on an API flagged
+  for removal was the wrong call, so the keystore (`packages/wallet-core/src/keystore.ts`) calls
+  `@noble/hashes`' `argon2idAsync` and `@noble/ciphers`' `xchacha20poly1305` directly instead —
+  the same actively-maintained underlying libraries cosmjs's deprecated wrapper itself delegates
+  to, without depending on an API cosmjs may delete. One encryption scheme, not two: the
+  Cosmos-side signer still uses `DirectSecp256k1HdWallet` unmodified; this container exists only
+  because viem has no built-in encrypted-keystore equivalent for the EVM-side key.
+- KDF params (argon2id, 64 MiB, t=3, p=4) are deliberately heavier than a login-password
+  baseline since this protects a wallet mnemonic. `decryptKeystore` always uses whatever
+  `kdfParams` are stored *in* the keystore being opened, never the module's current default —
+  so if this default is ever strengthened later, older keystores keep decrypting correctly
+  instead of silently deriving the wrong key. `encryptKeystore` accepts a params override, used
+  only by tests (a much lighter cost) to avoid multi-second-per-test runtimes; one test still
+  exercises the real default end-to-end with an extended timeout.
+- `fees.ts` hard-codes the fixed-fee pattern already established in
+  `sdk/examples/taxed-transfer-node.ts` (CosmJS "auto" fee estimation is broken on this chain —
+  `x/feemarket`'s gas-scaling ante handler, documented 2026-08-03) — no function in this package
+  accepts or returns the auto-fee sentinel. A grep-based `npm run lint` guard in
+  `packages/wallet-core/package.json` fails the build if the literal string `"auto"` ever
+  reappears in `src/`.
+- Fixed one real bug found while exercising this against a live chain: an early draft had
+  `toUtf8`/`fromUtf8` (from `@cosmjs/encoding`) swapped — `toUtf8` encodes string→bytes,
+  `fromUtf8` decodes bytes→string, the opposite of what the names suggest at a glance. Caught
+  immediately by `tsc` failing the build, not silently at runtime.
+- 28 unit tests, 100% statement/branch/function/line coverage (`packages/wallet-core/test/`):
+  known-mnemonic→known-address vectors for both chains, the dual-derivation regression test,
+  keystore round-trip plus fail-closed tests for wrong password, tampered ciphertext, tampered
+  nonce, and an unsupported version — each confirmed to throw rather than return garbage.
+- **Real, non-mocked integration verification against a local `lcv-devnet`** (`make devnet`),
+  going beyond the unit-test suite: funded a wallet-core-derived address via the existing devnet
+  keyring's own key (no private-key export needed — that action was correctly blocked and
+  worked around by funding through the CLI instead), then used wallet-core's own signer for the
+  return leg. Confirmed working end-to-end: (1) `SigningStargateClient.sendTokens` with a fixed
+  fee, real broadcast, real block inclusion; (2) the actual `TaxrailClient.taxedTransfer` (not
+  just a plain bank send) with a wallet-core signer — chain correctly evaluated the message and
+  returned code 1102, "no tax rule registered for this jurisdiction code," a legitimate
+  taxrail-level rejection on this fresh, jurisdiction-less devnet, not a wiring failure,
+  confirming the signer is a fully compatible drop-in for any `sdk/src/clients/*.ts` client; (3)
+  the EVM side independently, via `buildEvmWalletClient` (reusing `sdk`'s `buildLcvViemChain`
+  unmodified) — funded via `lcvd tx evm send`, then a real signed `eth_sendTransaction`-equivalent
+  transfer, mined, receipt confirmed (`status: 0x1`), recipient balance matching exactly
+  (`0.1 LCV` = `0xde0b6b3a7640000`→`0x16345785d8a0000` wei delta). Verification scripts kept at
+  `packages/wallet-core/scripts/devnet-*-check.mjs`, mirroring `sdk/examples/*-node.ts`'s
+  manual/live-devnet convention — not part of `npm test` since they need a running devnet.
+
+Phase 2 (security review gate — `npm audit`, semgrep/eslint-security pass, a checklist modeled
+on `docs/docs/validator-handbook.md`'s key-management section) has not started; Phase 3
+(Tauri desktop) and Phase 4 (React Native mobile) are blocked on it by design, per the plan.
 
 A second, more polished version of the AftPak PDF (`aftpak_security_audit-v6.pdf`) arrived,
 now framed as a formal "Engagement Letter & Technical Audit Synthesis Report" with a QR code

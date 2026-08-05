@@ -1,0 +1,48 @@
+{
+  "name": "@lastcoinvision/wallet-core",
+  "version": "0.1.0",
+  "description": "Framework-agnostic key generation, dual (Cosmos + EVM) HD derivation, and encrypted keystore for the LCV wallet apps. No UI, no platform-specific storage — apps/desktop and apps/mobile each supply their own at-rest storage backend and call into this package for everything else.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "grep -rn --include='*.ts' '\"auto\"' src && exit 1 || echo 'no auto-fee strings found'"
+  },
+  "dependencies": {
+    "@lastcoinvision/sdk": "^0.1.0",
+    "@cosmjs/amino": "^0.39.0",
+    "@cosmjs/crypto": "^0.39.0",
+    "@cosmjs/encoding": "^0.39.0",
+    "@cosmjs/proto-signing": "^0.39.0",
+    "@cosmjs/stargate": "^0.39.0",
+    "@noble/ciphers": "^2.2.0",
+    "@noble/hashes": "^2.2.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
