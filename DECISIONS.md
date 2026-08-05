@@ -2,6 +2,44 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — `gengenesis`: Incentivized Testnet (ITN) reward vesting, extending the self-bond carve-out pattern
+
+A Gemini-authored ITN blueprint was shared for review. Agreed with the core mechanics
+(points-based validator competition, real vested rewards, eventual genesis self-bonding) but
+pushed back on sequencing adversarial/chaos testing before a professional audit, and separated
+what's engineering-decidable now from what needs the user's own business/legal call (KYC/KYB,
+exact reward allocation, live program administration) — none of that was assumed or built.
+
+The one concretely engineering-decidable piece — the genesis/vesting tooling to actually pay
+out ITN rewards once a real program concludes — was built as a direct extension of the existing
+validator self-bond carve-out (see `2026-08-0x` entries on `lcv-testnet-1` launch), not a new
+mechanism:
+
+- New `-itn-rewards-file` flag on `gengenesis` takes a JSON array of
+  `{"address":"lcv1...","amount_ulcv":"..."}` entries (amounts as decimal strings, not JSON
+  numbers, to avoid float precision loss — consistent with how amounts are passed elsewhere in
+  this tool).
+- Each entry becomes a 1-year linear `PeriodicVestingAccount` (no cliff, 12 monthly periods),
+  carved directly out of the `community_airdrop` bucket's own 5% allocation — same principle as
+  the validator self-bond carve-out: reduce an existing bucket's credited total and credit the
+  difference elsewhere, rather than minting anything from outside the fixed 10B supply. Refuses
+  to run if the rewards total would exceed or zero out the entire bucket.
+- Deliberately reuses (rather than needing a new) vesting mechanism because standard
+  cosmos-sdk vesting accounts can already self-delegate (stake) their *locked* balance — only
+  bank `Send` of unvested coins is restricted, not `x/staking` delegation. This means a real ITN
+  validator can run `lcvd genesis gentx` directly against their reward account for their genesis
+  self-bond, with no separate liquid carve-out needed.
+- This claim was verified empirically end-to-end on a disposable local devnet, not just asserted
+  from general SDK knowledge: built genesis with two ITN reward entries (5,000,000,000,000 +
+  3,000,000,000,000 ulcv) → confirmed `community_airdrop`'s balance dropped by exactly that
+  total and total chain supply still equaled exactly 10,000,000,000,000,000 ulcv → ran
+  `lcvd genesis gentx` directly against one reward account with no prior funding → chain started
+  and `query staking validators` showed it `BOND_STATUS_BONDED` with exactly the requested
+  self-bond amount.
+- No live network changes — this is dormant tooling until a real, concluded ITN program
+  produces a real rewards file; `lcv-testnet-1`'s genesis and current allocation accounts are
+  untouched.
+
 ## 2026-08-04 — RELEASE_CHECKLIST.md §4: nightly e2e resolved, cosmovisor rehearsal deferred, bug bounty policy confirmed
 
 Closed out §4's three remaining boxes.

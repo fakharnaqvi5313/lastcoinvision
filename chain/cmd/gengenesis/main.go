@@ -38,6 +38,18 @@ import (
 	emissiontypes "github.com/lastcoinvision/lcv/x/emission/types"
 )
 
+// itnRewardEntry is one row of an -itn-rewards-file: a real (post-program)
+// Incentivized Testnet participant's reward, carved out of the
+// community_airdrop allocation rather than minted from outside the fixed
+// 10B supply — same principle as the validator self-bond carve-out below.
+type itnRewardEntry struct {
+	Address string `json:"address"`
+	// AmountULCV is a decimal-string integer (ulcv), matching how amounts
+	// are passed on the command line elsewhere in this tool — never a JSON
+	// number, to avoid float precision loss on large values.
+	AmountULCV string `json:"amount_ulcv"`
+}
+
 const (
 	denom = "ulcv"
 
@@ -86,6 +98,8 @@ func main() {
 
 		validatorSelfBondAddr   = flag.String("validator-self-bond-addr", "", "if set (with -validator-self-bond-amount), fund this address for an initial validator's self-bond by carving the amount out of the public allocation, rather than minting it from outside the fixed 10B supply")
 		validatorSelfBondAmount = flag.String("validator-self-bond-amount", "", "self-bond amount in ulcv (required if -validator-self-bond-addr is set)")
+
+		itnRewardsFile = flag.String("itn-rewards-file", "", "path to a JSON file of [{\"address\":\"lcv1...\",\"amount_ulcv\":\"...\"}] Incentivized Testnet reward recipients; each gets a 1-year linear vesting account, carved out of the community_airdrop allocation")
 	)
 	flag.Parse()
 
@@ -103,6 +117,33 @@ func main() {
 		selfBondAmount, ok = math.NewIntFromString(*validatorSelfBondAmount)
 		if !ok || !selfBondAmount.IsPositive() {
 			exitf("-validator-self-bond-amount %q is not a positive integer", *validatorSelfBondAmount)
+		}
+	}
+
+	var itnRewards []itnRewardEntry
+	itnRewardsTotal := math.ZeroInt()
+	if *itnRewardsFile != "" {
+		raw, err := os.ReadFile(*itnRewardsFile)
+		if err != nil {
+			exitf("reading -itn-rewards-file %q: %v", *itnRewardsFile, err)
+		}
+		if err := json.Unmarshal(raw, &itnRewards); err != nil {
+			exitf("parsing -itn-rewards-file %q: %v", *itnRewardsFile, err)
+		}
+		seen := make(map[string]bool, len(itnRewards))
+		for _, e := range itnRewards {
+			if _, err := sdk.AccAddressFromBech32(e.Address); err != nil {
+				exitf("-itn-rewards-file: invalid address %q: %v", e.Address, err)
+			}
+			if seen[e.Address] {
+				exitf("-itn-rewards-file: duplicate address %q — merge into one entry", e.Address)
+			}
+			seen[e.Address] = true
+			amt, ok := math.NewIntFromString(e.AmountULCV)
+			if !ok || !amt.IsPositive() {
+				exitf("-itn-rewards-file: amount_ulcv %q for %s is not a positive integer", e.AmountULCV, e.Address)
+			}
+			itnRewardsTotal = itnRewardsTotal.Add(amt)
 		}
 	}
 
@@ -229,7 +270,28 @@ func main() {
 			addAccount(mustAddr(*validatorSelfBondAddr), selfBondAmount)
 		case "community_airdrop":
 			addr := mustAddr(*communityAddr)
-			addAccount(addr, amount)
+			if len(itnRewards) == 0 {
+				addAccount(addr, amount)
+				break
+			}
+			// Same principle as the validator self-bond carve-out above:
+			// Incentivized Testnet rewards come out of the community
+			// allocation's own 5%, not minted from outside the fixed 10B
+			// supply. Each recipient gets a 1-year linear vesting account
+			// (no cliff, 12 monthly periods) rather than a liquid balance —
+			// standard cosmos-sdk vesting accounts can still self-delegate
+			// (stake) their locked balance immediately, so a real ITN
+			// validator can run `lcvd genesis gentx` against this same
+			// account for their genesis self-bond without needing a
+			// separate liquid carve-out.
+			if itnRewardsTotal.GT(amount) {
+				exitf("-itn-rewards-file total (%s) exceeds the entire community_airdrop allocation (%s) — refusing to zero out or overdraw it", itnRewardsTotal, amount)
+			}
+			addAccount(addr, amount.Sub(itnRewardsTotal))
+			for _, e := range itnRewards {
+				rewardAmt, _ := math.NewIntFromString(e.AmountULCV) // already validated above
+				addVestingAccount(e.Address, rewardAmt, 0, oneYearSeconds, 12)
+			}
 		case "team":
 			// 4-year vest, 1-year cliff, then quarterly release over the
 			// remaining 3 years (12 quarters).
@@ -275,6 +337,9 @@ func main() {
 	}
 
 	fmt.Printf("gengenesis: patched %s with %d allocation accounts (mint pinned to zero inflation)\n", *genesisPath, len(allocations))
+	if len(itnRewards) > 0 {
+		fmt.Printf("gengenesis: added %d Incentivized Testnet reward vesting accounts totaling %s%s (carved out of community_airdrop)\n", len(itnRewards), itnRewardsTotal, denom)
+	}
 }
 
 // vestingPeriods builds a cliff-then-linear PeriodicVestingAccount period
