@@ -2,6 +2,26 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Fixed 2 new Dependabot alerts introduced by the go-getter bump; re-triaged the remaining 7
+
+Checking back on the 26-alert round from earlier today: GitHub's re-scan caught up and
+confirmed 17 were actually resolved, but surfaced 2 *new* moderate alerts
+(`github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream`,
+`github.com/aws/aws-sdk-go-v2/service/s3` — both a DoS-via-panic in the SDK's eventstream
+decoder) that only exist because bumping `go-getter` to fix its own real vulnerability pulled
+in `aws-sdk-go-v2` in the first place. Bumped both to their patched versions
+(`eventstream` v1.7.7 → v1.7.8, `service/s3` v1.97.1 → v1.97.3) via `go get` + `go mod tidy`;
+`go build ./...` and the full `go test ./...` suite pass clean.
+
+The remaining 7 are unchanged from this morning's triage, still accurate:
+- `github.com/docker/docker` (5 alerts) — still confirmed tool-only (pulled in via
+  `tools/tools.go`'s `buf` blank-import, not compiled into `lcvd`), 4 of the 5 have no upstream
+  fix at any version regardless, and the 5th's supposed fix (`v29.3.1`) isn't a real resolvable
+  module version on the proxy yet.
+- `github.com/pion/dtls/v2` and `github.com/pion/stun/v2` (1 alert each) — still reachable
+  (via `go-ethereum`'s unused `p2p/nat` code) but with no upstream fix. Same accepted-risk
+  status as before.
+
 ## 2026-08-05 — `deploy/k8s/` verified end-to-end against a local `kind` cluster; found and fixed a real `chain/Dockerfile` bug in the process
 
 `deploy/k8s/`'s manifests had been "correct on paper" reference infrastructure since Phase H —
