@@ -2,6 +2,35 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Contacted AftPak to verify authenticity of an unsolicited "audit report" PDF
+
+A PDF (`aftpak_security_audit.pdf`) surfaced claiming to be a completed Security Engagement
+Letter & Technical Audit Synthesis Report for LCV, attributed to "AftPak Advisory & Cyber
+Security Services" (part of Al Mahdi Fast Technologies Pvt. Ltd.). Two things about the
+document itself didn't check out before any outreach: the engagement letter's signature block
+was unsigned, and one of its factual claims about the state of `main` didn't match the actual
+repo at the time. AftPak the company is real (confirmed via web search); that doesn't establish
+this specific document is genuine.
+
+Submitted a verification inquiry through AftPak's own `/contact` form (not a channel found in
+the PDF) asking them to confirm whether they produced this specific document. Reference ID
+returned: **AFT-O0CIPP**.
+
+**Reply received same day** from `inquiries@aftpak.com`: "We Officially confirmed that we
+produce the following Audit report for LastcoinVision (LCV)," with `aftpak_security_audit.pdf`
+reattached. Checked the raw headers rather than trusting the display name — SPF, DKIM, and
+DMARC all `PASS` for the `aftpak.com` domain, so the message genuinely originated from AftPak's
+own mail infrastructure, not a spoof. The reply is otherwise thin (no reference to the ticket ID
+or the specific unsigned-signature-block question, sent within ~15 minutes via a Roundcube
+webmail client) — a fast, low-effort confirmation rather than a detailed one. Decided not to
+press further on the signature-block point; treating AftPak's authenticated confirmation that
+they produced the document as sufficient on the "did AftPak make this" question.
+
+This still isn't the same as an audit being complete or ready to cite: `SECURITY_SELF_ASSESSMENT.md`
+and `AUDIT_SCOPE.md` remain the authoritative statements of what's actually been independently
+reviewed. This entry only closes the "is the PDF genuinely from AftPak" question, not "should
+its findings be treated as a finished, professional audit."
+
 ## 2026-08-05 — `SECURITY_SELF_ASSESSMENT.md`: internal pre-audit review, and a real fix it produced
 
 Asked to do a security review and generate a report to hand to a prospective professional
