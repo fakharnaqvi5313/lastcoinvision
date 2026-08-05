@@ -2,6 +2,36 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — A revised "v6" audit PDF surfaced; decoded its QR code for a second, independent verification channel
+
+A second, more polished version of the AftPak PDF (`aftpak_security_audit-v6.pdf`) arrived,
+now framed as a formal "Engagement Letter & Technical Audit Synthesis Report" with a QR code
+labeled "Digital Verification." Content review found the same class of problem as before, plus
+a new, concretely checkable one: Part 2 is literally titled "Independent Review & Synthesis of
+Internal Self-Assessment" — by its own heading, a repackaging of our own
+`SECURITY_SELF_ASSESSMENT.md`, not fresh independent testing — and Finding AP-LCV-01 presents
+the `gengenesis` duplicate-address gap as still open, unremediated work, when it was already
+found and fixed here (commit `ae5c65182`, 2026-08-05 20:33:28 +0500) before this document's
+claimed review of "`main`... Post-Commit 2026-08-05." A genuine independent review of current
+`main` would have seen the fix already in place.
+
+Standard QR tools weren't available without heavyweight installs (`opencv-python-headless` and
+`brew install zbar` both attempted to compile LLVM/ImageMagick from source on this machine's
+older macOS/Intel combo — abandoned as disproportionate for decoding one code). Instead, wrote
+a self-contained pure-Python QR decoder (PyMuPDF to extract the embedded image, then manual
+module-grid sampling, format-info/mask decoding, zigzag bit extraction, and a full Reed-Solomon
+GF(256) implementation) — both codeword blocks came back with **zero syndrome errors**,
+confirming an exact, error-free decode.
+
+The QR resolves to `https://aftpak.com/verify/4c0b60e3dddc417a76c4cbe193a2d13e4d1db125e2ed22ba`,
+a live lookup page on AftPak's own domain confirming document `Q3-05082026-AUDIT-LCV` (matching
+the PDF's own document number) was issued by Al Mahdi Fast Technologies Pvt. Ltd. on 2026-08-05.
+This is a second, independent-of-email confirmation channel that AftPak's own systems stand
+behind having issued this specific document — consistent with, and no stronger than, the
+DKIM-authenticated email reply already logged below. It answers "did AftPak issue this
+document," not "should its findings be treated as a finished, professional audit" — that
+question stays open for the same reasons as before.
+
 ## 2026-08-05 — Contacted AftPak to verify authenticity of an unsolicited "audit report" PDF
 
 A PDF (`aftpak_security_audit.pdf`) surfaced claiming to be a completed Security Engagement
