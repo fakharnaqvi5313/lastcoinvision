@@ -2,6 +2,34 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Real allocation addresses generated for all 6 non-module buckets
+
+Confirmed `staking_rewards` (12%) needs no address at all — `x/emission` already draws it as a
+genuine module account (`authtypes.NewModuleAddress("staking_rewards")`, no private key,
+registered in `app.go`'s `maccPerms` with `nil` permissions), and `gengenesis` already funds it
+that way via its `addModuleAccount` helper. Nothing to change; this was already correct.
+
+For the other 6 buckets, generated real keys — `lcvd keys add <name> --keyring-backend file`,
+one machine, mnemonics kept offline by the operator, never exposed anywhere this session could
+see them. Addresses verified as legitimate bech32 with `lcvd debug addr` before being recorded.
+Stored in `scripts/genesis/allocation-addresses.local.sh` (gitignored — matches the existing
+`scripts/deploy/config.local.sh` pattern, not because addresses themselves are sensitive) with
+a committed `.example.sh` template, sourced by `init-testnet-genesis.sh`'s existing
+`ECOSYSTEM_ADDR`/`TREASURY_ADDR`/etc. env-var override mechanism (already built, just never
+used with real values until now).
+
+**Explicitly not final for `treasury` (20%) and `ecosystem` (25%)**: generated on one machine
+for now, same as the other four buckets, but these two are the largest and longest-lived —
+before mainnet they should go through a proper multisig ceremony with each signer generating
+their own key on a separate machine (a single-machine multisig defeats the point of the
+threshold; see the same-day custody discussion). The keys generated today aren't wasted —
+they can become individual signer keys in that ceremony.
+
+**Does not touch `lcv-testnet-1`.** Its genesis is already frozen with the old placeholder
+addresses baked in; nothing short of a full wipe-and-restart could apply these new addresses
+retroactively, and that wasn't done or asked for. These are staged for the next real genesis
+construction (mainnet, or a deliberate testnet relaunch).
+
 ## 2026-08-05 — `lcv-testnet-1`'s validator stays on its single VPS for now, not migrated to `deploy/k8s/`
 
 Now that `deploy/k8s/`'s 3-sentry topology is verified end-to-end (see the entry below), asked

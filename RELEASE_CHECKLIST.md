@@ -35,9 +35,16 @@ final.
       cliff), staking rewards 12%, public 8%, community/airdrop 5%. Cross-check every genesis
       account's amount and vesting schedule against the allocation table, not just the total.
       **Structurally true on `lcv-testnet-1`** (verified percentages/vesting math), **but the
-      six bucket addresses are still placeholders** (`scripts/genesis/init-testnet-genesis.sh`
-      generated them) — this box stays unchecked until real, custody-controlled addresses
-      replace them.
+      six bucket addresses are still placeholders on the live network** —
+      `scripts/genesis/init-testnet-genesis.sh` generated them, and genesis is frozen, so
+      nothing short of a full wipe-and-restart can change them there. **Update (2026-08-05):**
+      real addresses for all six buckets now exist (`staking_rewards` needs none — it's a
+      module account, see the same-day DECISIONS.md entry) and are recorded in
+      `scripts/genesis/allocation-addresses.local.sh` (gitignored, real values) /
+      `.example.sh` (committed template), ready for the next real genesis construction.
+      `treasury` and `ecosystem` were generated on one machine for now and are earmarked for a
+      proper separated-signer multisig ceremony before mainnet — this box stays unchecked
+      until that's done and a real genesis actually uses these addresses.
 - [x] **Total supply is exactly 10,000,000,000 LCV** (`10_000_000_000_000_000 ulcv`) — sum
       every genesis balance and confirm it, don't sample. Verified on `lcv-testnet-1`'s
       genesis.json (2026-08-04).

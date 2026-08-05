@@ -53,3 +53,7 @@ deploy/docker-compose/.devnet/
 
 # Real deploy target details (host/key/paths) — never committed
 scripts/deploy/config.local.sh
+
+# Real allocation addresses — gitignored to match the config.local.sh
+# pattern above, not because addresses are secret (they aren't)
+scripts/genesis/allocation-addresses.local.sh
