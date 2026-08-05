@@ -147,6 +147,38 @@ func main() {
 		}
 	}
 
+	// Every address gengenesis is about to write a genesis account for must
+	// be pairwise distinct. Reusing one across two buckets (or across a
+	// bucket and the self-bond/ITN addresses) would make this tool emit two
+	// separate account/balance entries for the same address -- x/bank's own
+	// genesis validation already rejects that (a later `validate-genesis`
+	// step would fail, not silently double-credit anything), but it fails
+	// with a generic error that doesn't say which two addresses collided.
+	// Catch it here instead, with a message that actually points at the
+	// mistake.
+	type labeledAddr struct{ addr, label string }
+	checkedAddrs := []labeledAddr{
+		{*ecosystemAddr, "-ecosystem-addr"},
+		{*treasuryAddr, "-treasury-addr"},
+		{*teamAddr, "-team-addr"},
+		{*investorsAddr, "-investors-addr"},
+		{*publicAddr, "-public-addr"},
+		{*communityAddr, "-community-addr"},
+	}
+	if *validatorSelfBondAddr != "" {
+		checkedAddrs = append(checkedAddrs, labeledAddr{*validatorSelfBondAddr, "-validator-self-bond-addr"})
+	}
+	for i, e := range itnRewards {
+		checkedAddrs = append(checkedAddrs, labeledAddr{e.Address, fmt.Sprintf("-itn-rewards-file entry #%d", i+1)})
+	}
+	seenAddrs := make(map[string]string, len(checkedAddrs)) // address -> first label that used it
+	for _, la := range checkedAddrs {
+		if firstLabel, dup := seenAddrs[la.addr]; dup {
+			exitf("address %q is used for both %s and %s — every allocation/self-bond/ITN address must be distinct", la.addr, firstLabel, la.label)
+		}
+		seenAddrs[la.addr] = la.label
+	}
+
 	var totalPct int64
 	for _, a := range allocations {
 		totalPct += a.percentage

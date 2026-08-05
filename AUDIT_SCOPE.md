@@ -5,6 +5,10 @@ and where to focus. LastcoinVision (LCV) is devnet/testnet-stage software — th
 mainnet audit, and nothing here should be read as a claim that an audit has already happened.
 No audit has been performed; this is the scope document that would guide one.
 
+See [`SECURITY_SELF_ASSESSMENT.md`](SECURITY_SELF_ASSESSMENT.md) for current tool output and a
+manual review of recently-added code — an internal self-assessment meant to give an auditor a
+running start, explicitly not a substitute for independent review.
+
 ## Building and running
 
 ```bash

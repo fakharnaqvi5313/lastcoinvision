@@ -2,6 +2,45 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — `SECURITY_SELF_ASSESSMENT.md`: internal pre-audit review, and a real fix it produced
+
+Asked to do a security review and generate a report to hand to a prospective professional
+auditor to help them get up to speed faster — explicitly **not** a claim that a professional
+audit has happened; declined a separate, earlier request to represent an unnamed third party
+as having already completed one (no evidence existed for that; an unnamed auditor is itself a
+red flag for a fabricated claim, not a real audit's normal practice).
+
+Re-ran all five existing tools (gosec, staticcheck, cargo audit, npm audit, Slither) fresh
+against current `main` rather than recycling 2026-08-03's results. All consistent with what
+was already documented, with one genuine improvement: `npm audit` now shows **zero**
+vulnerabilities of any severity across all 5 Node packages (a few low-severity/dev-only
+findings existed at the last pass; current dependency versions have none). One near-miss
+caught during the process itself: an initial `staticcheck` run silently produced an empty
+result file due to a redirect issue, which briefly looked like "0 findings" — re-ran directly
+and confirmed the real count (213 hits, same as before: all generated-code or `x/crisis`
+transitional deprecation warnings, 0 actionable) before writing anything down.
+
+**Manual review of the one piece of genuinely new logic since the last pass** —
+`gengenesis`'s `-itn-rewards-file` extension — found one real, previously-unreported gap:
+no check that the operator-supplied addresses (the six allocation buckets, the validator
+self-bond address, every ITN reward address) are pairwise distinct. A reused address would
+make the tool emit two account/balance entries for one address — not silent corruption in
+practice (`x/bank`'s own genesis validation already rejects duplicate balances, so a later
+`validate-genesis` step would fail loudly), but with a generic error that doesn't say which
+two addresses collided. **Fixed**, not just reported: added an explicit pairwise-distinctness
+check with a clear error message naming both colliding flags/entries. Caught and fixed a real
+bug in the fix itself during review — an early version reverse-looked-up each address's label
+from a value→label map, which silently produced the wrong label when the same address value
+appeared at two different logical positions (e.g. an ITN entry that happens to collide with a
+bucket address) — rewrote to carry each address's own label forward directly instead of
+re-deriving it. Verified with a real invocation: two identical addresses across `-ecosystem-
+addr`/`-treasury-addr` correctly fails with a message naming both flags; distinct addresses
+correctly pass through to the (expected, in this test) next failure. Full `go build`/`go test`
+suite (18 packages) still green after the change.
+
+Full findings, tool output, and framing for the auditor in `SECURITY_SELF_ASSESSMENT.md` —
+explicitly labeled as a self-assessment throughout, not a substitute for independent review.
+
 ## 2026-08-05 — Decision: two validators is the target validator-set size, not a step toward more
 
 After onboarding the second validator, asked whether to keep recruiting more toward a larger,
