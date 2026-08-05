@@ -2,6 +2,26 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — Wrote `MAINNET_LAUNCH_RUNBOOK.md`, explicitly a draft, not an actual launch
+
+Asked to "continue to launch mainnet." Declined to treat that as an instruction to actually
+begin executing a mainnet launch — every remaining gate (professional audit, a real
+independent validator set, real custody for all six buckets, legal/regulatory review) is
+either not started or explicitly documented this same day as not-yet-real (the treasury/
+ecosystem "multisig" is still one machine; the other four buckets are still single-key
+placeholders). Building toward those gates isn't something more engineering work can shortcut.
+
+What *was* useful to do now: wrote `MAINNET_LAUNCH_RUNBOOK.md`, adapted from
+`RELEASE_CHECKLIST.md` §3's testnet runbook but scoped for mainnet's actual stakes —
+irreversibility (no "wipe and restart if something's wrong," unlike `lcv-testnet-1`), a
+dedicated §1 listing every hard gate that must close first (explicitly marked "none of these
+are closed" as of today, so the document can't be mistaken for launch-ready), a two-person
+independent re-verification step for the final allocation addresses before genesis (a wrong
+address here is permanent), and an explicit "no soft launch" non-goal — either every gate
+closes and it's a real, announced launch, or it doesn't happen; a quiet launch with unresolved
+gates is the same risk with worse incident response. Linked from `RELEASE_CHECKLIST.md`'s
+intro. No code changes, no live network touched.
+
 ## 2026-08-05 — Treasury/ecosystem multisig ceremony, run on one machine (explicitly not final)
 
 Asked whether real, separate co-signers were available to do a genuine multisig ceremony for

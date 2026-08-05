@@ -2,7 +2,10 @@
 
 A runbook for launching a real (non-`lcv-devnet`) network — `lcv-testnet-1` or, eventually,
 `lastcoinvision-1`. This is a testnet-launch checklist today; nothing here should be read as
-mainnet readiness, and no launch date is implied.
+mainnet readiness, and no launch date is implied. For mainnet specifically, see
+[`MAINNET_LAUNCH_RUNBOOK.md`](MAINNET_LAUNCH_RUNBOOK.md) — a draft planning document, explicitly
+not executable until its own hard gates (audit, real validator set, real custody, legal review)
+are closed.
 
 **Status (2026-08-04):** `lcv-testnet-1` exists and is producing blocks on the production
 VPS, as a single, team-hosted bootstrap validator — this satisfies §3's "dry-run privately
