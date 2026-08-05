@@ -25,6 +25,20 @@ proposal (deposited, voted, passing 2026-08-06T17:40:52Z — real 48h timing, no
 explicitly left open with the reason why (external validators, HSM, a genuinely new upgrade
 handler, or a policy call only the user can make).
 
+**Update (2026-08-05): `lcv-testnet-1` is no longer a single-validator network.** A second
+validator was onboarded on a separate VPS (169.58.129.247), independently owned/operated
+infrastructure from the first — real full-node sync from the live genesis, a fresh consensus
+key (never shared with the first validator), and a real `MsgCreateValidator` transaction.
+Verified via the public API: both validators show `BOND_STATUS_BONDED` and both appear in the
+live consensus set. Still very small (9 LCV self-bond vs. the first validator's 1,000,000 —
+matching stake wasn't the point; a second genuinely independent operator is), and still not
+"a real, independent, economically diverse validator set" in the sense `MAINNET_LAUNCH_RUNBOOK.md`
+means — but the "one bootstrap validator" framing above is no longer accurate. See the
+same-day DECISIONS.md entry for the full record, including a real mistake (an operator-key
+mnemonic briefly leaked into this session's transcript, caught and corrected immediately by
+discarding that key) and a real bug found in `lcvd-monitor.sh` once a second validator existed
+to expose it.
+
 ## 1. Genesis verification
 
 Genesis construction for a real network must **not** reuse `scripts/genesis/init-genesis.sh`
@@ -75,17 +89,22 @@ final.
       CometBFT's real default (~5s), confirmed by observed block times.
 - [x] **`lcvd validate-genesis` passes on the final, distributed genesis.json** — and every
       validator's own copy hashes identically (`sha256sum genesis.json` compared across all
-      validators before anyone starts). Passes; the hash-match check is trivial with a single
-      validator and needs re-verifying once more validators actually join.
+      validators before anyone starts). **Re-verified for real (2026-08-05)**: the second
+      validator's genesis was fetched live via RPC and its sha256 confirmed to match before
+      being used — no longer just a trivial single-validator check.
 - [x] **Chain ID is final and correct** (`lcv-testnet-1`, or the real mainnet ID) — this
       cannot be changed after the first block without a hard fork. Running as `lcv-testnet-1`;
       a real mainnet launch still needs its own chain ID decided separately.
 
 ## 2. Validator onboarding
 
-**Most of this still doesn't apply to `lcv-testnet-1`'s sole current validator** — it runs on
-a shared VPS with a plaintext `test`-backend key and no sentry topology, which is fine for a
-first bootstrap node but not what this section describes overall. The items below marked
+**Most of this still doesn't apply to `lcv-testnet-1`'s two current validators** — both run on
+shared VPSes with plaintext `test`-backend keys and no sentry topology, which is fine for
+bootstrap-stage nodes but not what this section describes overall. The second validator
+(169.58.129.247, onboarded 2026-08-05) is at least independently-operated infrastructure from
+the first, which is a real step toward the "real, independent, economically diverse validator
+set" this section is ultimately about — but neither validator individually closes any of the
+hardware/HSM/sentry items below. The items below marked
 done are genuinely done for this validator; the rest stay open for the first *real* external
 validator (recruiting one is a coordination problem, not something to fake).
 

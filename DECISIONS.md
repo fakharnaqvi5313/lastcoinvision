@@ -2,6 +2,62 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — `lcv-testnet-1` gets a real second validator (169.58.129.247) — no longer a single-validator network
+
+User provided a second VPS (169.58.129.247, already running an unrelated pre-existing service —
+`krovad`, a Krovacoin node — explicitly left untouched) and asked for it to be onboarded as a
+real validator. Unlike the earlier sentry-topology discussion (which was about *migrating* the
+existing bootstrap validator, deferred by choice), adding a genuinely new second validator to an
+already-running chain needs no genesis changes or downtime at all — it's the standard Cosmos
+flow: sync a full node from the real (frozen) genesis, then submit a normal `MsgCreateValidator`
+transaction once caught up.
+
+**A real security lapse happened during this and was corrected immediately**: generating the new
+validator's operator key, the mnemonic printed to stdout and landed in this conversation's
+transcript (a `grep -v mnemonic` filter didn't actually catch it, since the mnemonic itself is on
+a separate line from the word "mnemonic"). Deleted that key immediately and regenerated it with
+output redirected straight to a file on the VPS, never displayed again — same principle as the
+multisig ceremony's "never pasted into chat" rule, just a real miss this time rather than a
+successful application of it. Flagging plainly rather than glossing over it: for a mnemonic that
+briefly existed in a transcript, the only real fix is not using that key, which is what happened.
+
+**Provisioning**: downloaded and checksum-verified the exact `v0.1.0-testnet2` `linux_amd64`
+release binary and the exact pinned `libwasmvm.x86_64.so` (v3.0.7) — same versions running on
+the first VPS, verified by checking `lcvd version --long`'s reported version before treating them
+as a match. Copied the *exact same* `cosmovisor` binary from the first VPS (rather than
+reinstalling from scratch) to guarantee an identical match. Fetched the real, live genesis via
+RPC and confirmed its sha256 matched the value already on record before using it. Initialized a
+brand-new consensus key on this VPS (never touched or copied the first validator's key — sharing
+a consensus key across two running nodes is a double-sign risk, not a shortcut).
+
+**Firewall**: this VPS had no firewall at all (`ufw` inactive) before this. Found the pre-existing
+`krovad` process listening on `0.0.0.0:42876` first, asked whether it was safe to touch, and
+enabled `ufw` with `krovad`'s port explicitly allowed alongside SSH and lcvd's P2P port — verified
+both services still reachable immediately after enabling it, rather than assuming.
+
+**Funding**: the existing validator's self-bond is 1,000,000 LCV; matching that would need
+100,000 faucet requests (drip is 10 LCV, rate-limited). Self-bonded 9 LCV instead via a single
+faucet request — trivial voting-power share, but a genuinely real, independently-operated second
+validator is what actually matters here (multi-validator consensus, real peering, real P2P), not
+matching the first validator's stake, especially on a testnet with explicitly no real economic
+value at stake.
+
+**Result, verified independently via the public API** (not just "the script said success"):
+both `lcv-testnet-validator-0` and `lcv-testnet-validator-1` show `BOND_STATUS_BONDED`, and
+`/validators` on the live RPC shows both in the active consensus set (2 total). `lcv-testnet-1`
+is a real, if still very small, multi-validator network for the first time.
+
+**Found and fixed a real bug in `lcvd-monitor.sh` in the process**: it queried
+`staking validators` and took the *first* entry in the list to check bonded status — correct by
+coincidence with exactly one validator, silently wrong the moment a second one exists (the
+first entry isn't necessarily this node's own validator). Fixed to match by this node's own
+consensus pubkey instead — and hit a second bug fixing the first: `comet show-validator`'s JSON
+uses `@type`/`key` field names while `query staking validators --output json`'s pubkey uses the
+older `type`/`value` names for the exact same key, so the first fix attempt still silently
+failed to match (returned `NOT_FOUND`) until caught by actually running the script and checking,
+not just reading the diff. Deployed the corrected script to both VPSs and installed the
+missed-block monitor timer on the second one, matching the first.
+
 ## 2026-08-05 — Site-wide link/stale-data audit: found and fixed the homepage's dead live-stats strip
 
 Asked to check the rest of the site for issues similar to the explorer/roadmap/RPC-table

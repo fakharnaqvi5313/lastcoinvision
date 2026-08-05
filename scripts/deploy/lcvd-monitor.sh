@@ -19,14 +19,29 @@ NODE="tcp://127.0.0.1:26657"
 MISSED_BLOCKS_WARN_THRESHOLD="${MISSED_BLOCKS_WARN_THRESHOLD:-20}"
 
 CONS_ADDR="$("$LCVD" comet show-address --home "$HOME_DIR")"
+CONS_PUBKEY="$("$LCVD" comet show-validator --home "$HOME_DIR" | python3 -c "import json,sys; print(json.load(sys.stdin)['key'])")"
 
+# query staking validators lists every validator on the network, not just
+# this one -- with a single bootstrap validator, taking the first entry
+# happened to be correct, but that broke silently the moment a second
+# validator was onboarded (2026-08-05). Matched explicitly by this node's
+# own consensus pubkey instead, so this script stays correct regardless of
+# how many other validators exist.
 STATUS_JSON="$("$LCVD" query staking validators --node "$NODE" --output json)"
-VALIDATOR_STATUS="$(echo "$STATUS_JSON" | python3 -c "
-import json,sys
+VALIDATOR_STATUS="$(echo "$STATUS_JSON" | CONS_PUBKEY="$CONS_PUBKEY" python3 -c "
+import json,os,sys
 d = json.load(sys.stdin)
+target = os.environ['CONS_PUBKEY']
 for v in d.get('validators', []):
-    print(v.get('status'))
-    break
+    # 'query staking validators --output json' uses the legacy
+    # type/value field names for the pubkey Any, not @type/key like
+    # 'comet show-validator' -- these are the same key, just serialized
+    # differently by two different code paths in the same binary.
+    if v.get('consensus_pubkey', {}).get('value') == target:
+        print(v.get('status'))
+        break
+else:
+    print('NOT_FOUND')
 ")"
 
 SIGNING_JSON="$("$LCVD" query slashing signing-info "$CONS_ADDR" --node "$NODE" --output json)"
