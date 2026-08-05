@@ -85,7 +85,7 @@ export const roadmap: RoadmapItem[] = [
     title: "Mainnet preparation",
     summary: "A professional security audit, a real independent validator set, and real custody — the gates before any launch beyond testnet.",
     detail:
-      "lcv-testnet-1 is live and producing blocks as a single bootstrap validator, with public RPC/REST, a faucet, and a verified sentry-node topology ready to onboard real operators. What's left isn't more building: a paid external security audit, recruiting independent validators, a real multisig ceremony for the largest token allocations, and legal/regulatory review — none of which have a launch date yet.",
+      "lcv-testnet-1 is live and producing blocks with two independently-operated validators, public RPC/REST, a faucet, and a verified sentry-node topology ready to onboard more real operators. What's left isn't more building: a paid external security audit, a larger and more economically diverse validator set, a real multisig ceremony for the largest token allocations, and legal/regulatory review — none of which have a launch date yet.",
     status: "in-progress",
   },
 ];
