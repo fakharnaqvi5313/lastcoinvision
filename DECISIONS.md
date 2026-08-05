@@ -2,6 +2,57 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-05 — `explorer.lastcoinvision.com` deployed for real; found and fixed a real ping.pub config bug in the process
+
+Checking the `/developers` page's RPC table surfaced a dead link: `explorer.lastcoinvision.com`
+had no DNS record at all — the explorer had only ever been verified via local
+`docker-compose`, never actually deployed publicly. User pointed the DNS A record at the VPS;
+did the rest of the one-time server setup (nginx vhost, certbot SSL — same pattern as
+`docs.lastcoinvision.com`) and shipped the real build.
+
+**Docker's build-time network was unreliable in this environment** — two consecutive
+`docker build` attempts timed out ~5 minutes into `yarn install` fetching different large
+packages each time (`osmojs`, then `cosmjs-types`), while the exact same URLs downloaded
+instantly via direct `curl` from the host. Built natively instead (`yarn install
+--network-timeout 600000`, then `yarn build`) to get unblocked — worked cleanly, just slower
+(the native `node_modules`/build output never gets committed; the vendored submodule's working
+tree was reset afterward, since it's never meant to carry build artifacts in place — see
+`explorer/README.md`).
+
+**Found a real bug once it was actually live**: the browser console showed
+`TypeError: Cannot read properties of undefined (reading 'coingecko_id')` and the sidebar
+never listed `lcv-testnet-1` as a chain at all, despite the string being present in the built
+JS. Root cause (full trace in a dedicated investigation, condensed here): ping.pub's
+`useDashboard.ts` builds its chain list with a plain `Array.prototype.forEach` over every
+`chains/mainnet/*.json` (or `chains/testnet/*.json`, picked by whether the hostname contains
+"testnet" — an either/or dispatch, not a merge, so the Dockerfile's existing comment claiming
+both dirs get read was wrong) file — `convertFromLocal()` dereferences `lc.logo.startsWith(...)`
+unconditionally, and our config had no top-level `logo` field, so it threw and **silently
+aborted every chain after it in iteration order**, including `lcv-testnet-1` itself. The
+`coingecko_id` crash was a downstream symptom: the router still set the current chain name to
+`lcv-testnet-1` from the URL, but since it was never actually added to the chain map, every
+getter reading `blockchain.current` got `undefined`.
+
+Fixed by adding the two runtime-required-but-build-time-unvalidated fields to
+`explorer/config/lcv-testnet-1.json` and `lcv-devnet.json` (both had the same latent bug —
+this had never been caught before because no config had ever been loaded by a real browser
+against a real deployment until now): a top-level `logo` (absolute URL — a non-`http` value
+gets silently rewritten to `ping.pub`'s own domain by the same function, so this had to be
+right, not just present) and `assets[0].logo`/`assets[0].coingecko_id`. Also fixed
+`explorer/Dockerfile` to strip ping.pub's ~7 bundled stock demo chains
+(`chains/mainnet/*.json`/`chains/testnet/*.json`) before copying LCV's own config in — both so
+this deployment serves exactly the one chain it's meant to, and so one broken stock config
+can't take down ours again via the same forEach-abort mechanism.
+
+**Verified for real, not just "built successfully"**: rebuilt, redeployed, opened a fresh
+browser tab (to rule out stale-bundle caching, which briefly looked like the fix hadn't taken —
+confirmed by checking the actual asset filenames on the server vs. what the browser had
+cached), zero console errors, and the dashboard showed real live data: height climbing, exact
+`10,000,000,000` LCV supply, the real `lcv-testnet-1` validator's node info, and proposal #1's
+actual live tally and `VOTING` status. `scripts/deploy/deploy-explorer.sh` written for future
+redeploys (Docker-build-based, matching the Dockerfile exactly, with the native-build fallback
+documented inline given today's Docker networking issue).
+
 ## 2026-08-05 — Wrote `MAINNET_LAUNCH_RUNBOOK.md`, explicitly a draft, not an actual launch
 
 Asked to "continue to launch mainnet." Declined to treat that as an instruction to actually

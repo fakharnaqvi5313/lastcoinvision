@@ -180,7 +180,15 @@ validator (recruiting one is a coordination problem, not something to fake).
    balance query); `explorer`'s `/lcv-testnet-1` route returned 200 with
    `rpc.lastcoinvision.com`/`api.lastcoinvision.com` confirmed baked into its compiled JS
    bundle; `web`'s built output likewise confirmed `rpc.lastcoinvision.com` baked into its
-   static chunks. **Update (2026-08-05):** `deploy/k8s/` was then verified separately, end to
+   static chunks. **That `explorer` check turned out to be incomplete** — HTTP 200 plus the
+   right strings in the bundle isn't the same as "actually renders without error," and it
+   didn't catch a real crash that only a live browser console would show (see the 2026-08-05
+   DECISIONS.md entry: a missing `logo` field silently aborted ping.pub's entire chain-loading
+   loop, so `lcv-testnet-1` never actually appeared as a chain despite the HTTP check passing).
+   `explorer` is now genuinely deployed at `explorer.lastcoinvision.com`, fixed, and
+   re-verified with a real browser showing live data (real height, exact 10B supply, the real
+   validator's node info, proposal #1's live tally) and zero console errors — not just an HTTP
+   status check. **Update (2026-08-05):** `deploy/k8s/` was then verified separately, end to
    end, against a local `kind` cluster with Calico installed (needed for `NetworkPolicy`
    enforcement, which kind's default CNI doesn't provide) — see the same-day DECISIONS.md
    entry for the full walkthrough (this also caught and fixed a real bug: `chain/Dockerfile`

@@ -58,6 +58,30 @@ anything at `/`). Assumes the one-time server setup already exists: nginx vhost 
 SSL for `faucet.lastcoinvision.com`, and `/home/deploy/faucet/.env` already populated with
 `FAUCET_MNEMONIC` and the rest of `faucet/.env.example`'s settings.
 
+## `deploy-explorer.sh` — explorer.lastcoinvision.com
+
+One-command deploy of `explorer/` (ping.pub, pointed at `lcv-testnet-1` by default) to the
+production VPS: builds the static output via Docker (matching `explorer/Dockerfile`'s build
+stage exactly, `CHAIN_CONFIG` overridable via env var) and syncs it into nginx's docroot.
+Like `deploy-docs.sh`, there's no app process to restart.
+
+```bash
+./scripts/deploy/deploy-explorer.sh
+```
+
+Uses the same `config.local.sh`, plus `REMOTE_EXPLORER_DIR` (currently
+`/var/www/explorer.lastcoinvision.com`) and `EXPLORER_HEALTH_URL`. Assumes the one-time
+server setup already exists (nginx vhost + certbot SSL for `explorer.lastcoinvision.com`,
+set up 2026-08-05 — see DECISIONS.md).
+
+The chain config in `explorer/config/*.json` needs two fields ping.pub requires at runtime
+but doesn't validate at build time — `logo` (top-level, must be an absolute `http(s)` URL) and
+`assets[].logo`/`assets[].coingecko_id` — omitting them throws inside a `forEach` that's
+building the chain list and silently aborts every chain after the broken one, including
+whichever chain is actually meant to be served. See the 2026-08-05 DECISIONS.md entry for the
+full root-cause trace. The Dockerfile also strips ping.pub's ~7 bundled stock demo chains
+before copying LCV's own config in, so this deployment serves exactly one chain, not eight.
+
 ## `lcvd.service` / `faucet.service` — systemd units
 
 Not deploy scripts, but the systemd unit files installed once on the VPS for the

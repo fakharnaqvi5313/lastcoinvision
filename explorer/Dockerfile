@@ -19,12 +19,17 @@ COPY config/ ./lcv-config/
 # the way faucet's LCV_RPC_URL is.
 ARG CHAIN_CONFIG=lcv-devnet.json
 
-# ping.pub's dashboard defaults to its "mainnet" chain set unless the
-# deployment hostname contains "testnet" (see src/stores/useDashboard.ts) —
-# irrelevant upstream when picking a public chain to browse, but this build
-# only ever serves one private chain, so the config is layered into both
-# sets to make sure it loads regardless of hostname.
-RUN cp "./lcv-config/${CHAIN_CONFIG}" "./chains/testnet/${CHAIN_CONFIG}" && \
+# ping.pub picks chains/mainnet/*.json or chains/testnet/*.json at runtime
+# based on whether the deployment hostname contains "testnet" (see
+# useDashboard.ts's networkType check) — an either/or dispatch, not a merge,
+# so the config has to go in both dirs to load regardless of hostname. It
+# also ships ~7 stock demo chains (axelar, cosmos, neutron, ...) in each dir;
+# left in place, a single bad/incomplete chain config among them throws
+# inside the array's forEach and silently aborts loading every chain after
+# it (including ours) — strip them so this build serves only our own chain,
+# and one broken config can't take down the sidebar.
+RUN rm -f ./chains/testnet/*.json ./chains/mainnet/*.json && \
+    cp "./lcv-config/${CHAIN_CONFIG}" "./chains/testnet/${CHAIN_CONFIG}" && \
     cp "./lcv-config/${CHAIN_CONFIG}" "./chains/mainnet/${CHAIN_CONFIG}"
 
 RUN yarn build

@@ -6,11 +6,14 @@
   "coin_type": "118",
   "min_tx_fee": "500",
   "addr_prefix": "lcv",
+  "logo": "https://lastcoinvision.com/logo.png",
   "assets": [
     {
       "base": "ulcv",
       "symbol": "LCV",
-      "exponent": "6"
+      "exponent": "6",
+      "coingecko_id": "",
+      "logo": "https://lastcoinvision.com/logo.png"
     }
   ]
 }
