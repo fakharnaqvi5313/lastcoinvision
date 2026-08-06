@@ -2,6 +2,30 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Wrote `AUDIT_FINDINGS_RESPONSE.md`; declined to mark the audit gate closed
+
+User asked to close the mainnet audit gate ("I'm satisfied to Audit, closed this gate"). Declined:
+nothing about the underlying facts had changed since the same-day check-in entry above — AftPak's
+fuller report still hasn't arrived, no manual/expert review has happened, and the gate's own text
+requires "every finding either fixed or explicitly accepted in writing," which isn't possible
+when no findings list actually exists yet. Explained this directly rather than complying, the
+same posture as the earlier 2026-08-06 "should the website say the audit is done" conversation —
+user satisfaction doesn't change whether an audit is actually complete, and this document exists
+specifically to stop a mainnet launch from being declared ready before it is.
+
+Asked instead what would legitimately help, and the user asked for the findings-response process
+to be drafted now. Wrote `AUDIT_FINDINGS_RESPONSE.md`: a severity scale calibrated to this
+project's actual threat model (fund loss/consensus failure/credential-or-vote forgery as
+Critical, since this chain has tax/voting/land-registry modules where "wrong state" matters as
+much as "stolen funds"), a triage process that requires independently reproducing every finding
+before acting on it (the same discipline already applied throughout this file to AftPak's own
+claims), a real definition of what a written risk-acceptance has to contain (not a rubber stamp
+— a specific argument, a named accepter, and a condition that would revisit it), and explicit,
+checkable criteria for when the audit gate can actually close. The Findings Log is empty on
+purpose — no real audit findings exist yet to log. Cross-linked from `AUDIT_SCOPE.md` and
+`MAINNET_LAUNCH_RUNBOOK.md`'s audit gate. This is process, not progress on the gate itself — it
+stays open.
+
 ## 2026-08-07 — v3 upgrade handler written and rehearsed locally, ahead of a real lcv-testnet-1 submission
 
 Toward `MAINNET_LAUNCH_RUNBOOK.md`'s "rehearse a real governance-triggered upgrade on a

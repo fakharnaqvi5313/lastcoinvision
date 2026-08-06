@@ -9,7 +9,9 @@ claims verified against this repo (see `DECISIONS.md`, 2026-08-06), but a fuller
 recommendations is still pending, and nothing received so far goes beyond the same automated
 tooling (`gosec`/`staticcheck`/`govulncheck`/`npm audit`) already run and documented here — no
 manual/expert code review has been completed yet. This remains the scope document meant to guide
-that still-outstanding review, not a record that it happened.
+that still-outstanding review, not a record that it happened. See
+[`AUDIT_FINDINGS_RESPONSE.md`](AUDIT_FINDINGS_RESPONSE.md) for how findings from that review
+(once it exists) get triaged and resolved before the mainnet audit gate can close.
 
 See [`SECURITY_SELF_ASSESSMENT.md`](SECURITY_SELF_ASSESSMENT.md) for current tool output and a
 manual review of recently-added code — an internal self-assessment meant to give an auditor a
