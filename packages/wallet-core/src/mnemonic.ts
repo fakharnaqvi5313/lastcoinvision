@@ -28,7 +28,8 @@ export function generateMnemonic(entropyBytes: number = DEFAULT_ENTROPY_BYTES): 
  */
 export function isValidMnemonic(mnemonic: string): boolean {
   try {
-    // eslint-disable-next-line no-new -- validation is the constructor's side effect
+    // Validation is the constructor's side effect -- discarding the
+    // instance is intentional, we only care whether it throws.
     new EnglishMnemonic(mnemonic.trim().toLowerCase());
     return true;
   } catch {
@@ -43,6 +44,5 @@ export function isValidMnemonic(mnemonic: string): boolean {
  */
 export function assertValidMnemonic(mnemonic: string): void {
   const normalized = mnemonic.trim().toLowerCase();
-  // eslint-disable-next-line no-new
   new EnglishMnemonic(normalized); // throws with a specific reason on bad checksum/wordlist
 }

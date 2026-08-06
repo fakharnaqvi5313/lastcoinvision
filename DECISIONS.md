@@ -2,6 +2,34 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-06 — Wallet build Phase 2: security review gate on `packages/wallet-core`
+
+Per the wallet plan, Phase 2 is a hard gate before any desktop/mobile UI work starts (Phase 3/4).
+Ran fresh, not assumed:
+
+- `npm audit` across the workspace: **0 vulnerabilities** excluding dev-only deps. The one
+  low-severity finding with dev deps included (`esbuild` 0.27.3–0.28.0, Windows-only dev-server
+  file-read issue) is the same accepted category already documented for other packages in
+  `AUDIT_SCOPE.md` — dev-server-only, never present in shipped output.
+- Added `eslint.config.mjs` (new to this repo — no eslint config existed anywhere before) with
+  `eslint-plugin-security`'s recommended rule set, scoped to `packages/wallet-core/src` and
+  `packages/tx-builders/src` only (not a general style linter for the rest of the repo). **0
+  findings** on first run; cleaned up two unrelated "unused eslint-disable directive" warnings
+  left over from an earlier draft (the underlying `no-new` rule isn't even enabled in this
+  scoped config, so the disable comments were dead weight, not a real issue).
+- Manual checklist verified against the actual code, not assumed — full list in `AUDIT_SCOPE.md`'s
+  new "`packages/wallet-core`: internal security review" section. Everything passed as designed:
+  no logging of secrets, no network calls from `wallet-core` itself, no `Math.random` anywhere
+  near key material, authenticated encryption confirmed fail-closed by test, the "auto" fee
+  sentinel structurally unreachable, and the two addresses (`cosmosAddress`/`evmAddress`) exposed
+  as distinctly-named members with no code path that merges them.
+
+Added `packages/wallet-core/` and `packages/tx-builders/` as their own rows in `AUDIT_SCOPE.md`'s
+in-scope table. This is an internal tooling/checklist pass, not an external audit — the
+mainnet-readiness gate (see the wallet plan) still requires an independent audit of `wallet-core`
+specifically before it's ever pointed at real funds. Phase 3 (Tauri desktop) and Phase 4 (React
+Native mobile) are unblocked as of this entry.
+
 ## 2026-08-06 — LCV has engaged AftPak for an ongoing (2-year) security audit; verified their initial report's technical accuracy
 
 A third AftPak document surfaced (`aftpak_paid_audit_lcv-v2.pdf`, Doc No. Q4-06082026-AUDIT-LCV),

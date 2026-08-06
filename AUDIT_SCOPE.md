@@ -35,6 +35,8 @@ See [`README.md`](README.md) and [`docs/docs/getting-started/run-a-node.md`](doc
 | Reference Solidity contracts | `contracts/solidity/src/` | `LCVEscrow.sol`, `InvoiceFactor.sol`, `CommerceEscrow.sol` |
 | Reference CosmWasm contracts | `contracts/cosmwasm/` | `consent-registry`, `procurement-ledger` |
 | TypeScript SDK | `sdk/` | wallet/tx-signing helpers, typed module clients |
+| Wallet key management | `packages/wallet-core/` | mnemonic generation, dual Cosmos+EVM HD derivation, encrypted keystore — **highest-priority new surface**, holds real private key material once shipped |
+| Wallet tx wrappers | `packages/tx-builders/` | fixed-fee wrappers over `sdk`'s module clients for the wallet apps |
 | Faucet | `faucet/` | funds testnet accounts — check for drain/abuse vectors |
 | Deployment manifests | `deploy/` | docker-compose, k8s — check for hardcoded secrets, exposed ports |
 
@@ -64,6 +66,36 @@ but not called from any handler yet. See
 
 Not governance-controlled enums. See each module's own SPEC.md Limitations section for the
 full list (registry, taxrail, and emission each have one).
+
+### `packages/wallet-core`: internal security review (2026-08-06), before any UI ships
+
+Full detail in `DECISIONS.md`; summarized here for auditors. This package has no UI yet
+(desktop/mobile apps haven't started) — this review covered the library in isolation.
+
+- `npm audit`: 0 vulnerabilities in the package's own dependency tree.
+- `eslint-plugin-security` (recommended rule set): 0 findings.
+- Manual checklist, verified against the actual code (not assumed):
+  - No `console.*` calls anywhere in `packages/wallet-core/src` or `packages/tx-builders/src`.
+  - No network calls (`fetch`/`http`/etc.) anywhere in `wallet-core` — it's a pure library;
+    networking lives in `tx-builders`/`sdk`, which only ever receive an already-constructed
+    signer, never a mnemonic or private key.
+  - No mnemonic or private key value is ever interpolated into an `Error` message.
+  - `Math.random` is not used anywhere for key material — `mnemonic.ts` uses `@cosmjs/crypto`'s
+    `Random` (backed by `crypto.getRandomValues`) exclusively; the one match for the string
+    `Math.random` in the codebase is a comment explicitly stating it's *not* used.
+  - Keystore encryption (`keystore.ts`) uses `@noble/ciphers`' `xchacha20poly1305`, an
+    authenticated cipher — confirmed by test: tampering with the ciphertext or nonce, or using
+    the wrong password, all fail closed (throw) rather than returning garbage plaintext.
+  - No code path can reach CosmJS's "auto" fee-estimation sentinel — enforced by a grep-based
+    `npm run lint` guard in both `wallet-core` and `tx-builders`, not just convention.
+  - `LcvWallet` exposes `cosmosAddress()` and `evmAddress` as separately-named members; nothing
+    in the codebase merges them into one field — the dual-derivation design (see `derive.ts`)
+    is structurally impossible to present as "one account" from this API.
+
+**Not yet done, by design:** an *external*, independent audit of this package specifically.
+This was an internal review gate before starting UI work (Phase 2 of the wallet build), not a
+substitute for one — see the mainnet-readiness gate in `DECISIONS.md`, which requires an
+external audit of this exact package before it's ever pointed at real funds.
 
 ### Dependency-scanner findings reviewed and accepted this phase (2026-08-03)
 
