@@ -2,8 +2,14 @@
 
 This document is for external auditors: what to review, what's already known and accepted,
 and where to focus. LastcoinVision (LCV) is devnet/testnet-stage software — this is not a
-mainnet audit, and nothing here should be read as a claim that an audit has already happened.
-No audit has been performed; this is the scope document that would guide one.
+mainnet audit, and nothing here should be read as a claim that a completed, independent audit
+exists. As of 2026-08-07: LCV has engaged AftPak.com (Al Mahdi Fast Technologies Pvt. Ltd.) for
+an ongoing security-audit engagement; an initial report has been received and its checkable
+claims verified against this repo (see `DECISIONS.md`, 2026-08-06), but a fuller report with
+recommendations is still pending, and nothing received so far goes beyond the same automated
+tooling (`gosec`/`staticcheck`/`govulncheck`/`npm audit`) already run and documented here — no
+manual/expert code review has been completed yet. This remains the scope document meant to guide
+that still-outstanding review, not a record that it happened.
 
 See [`SECURITY_SELF_ASSESSMENT.md`](SECURITY_SELF_ASSESSMENT.md) for current tool output and a
 manual review of recently-added code — an internal self-assessment meant to give an auditor a

@@ -2,6 +2,32 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Mainnet gate check-in: AftPak audit status re-verified, stale "no audit started" language fixed
+
+User asked to work toward mainnet-launch readiness. Before touching any of the harder
+infrastructure/legal gates, checked whether anything changed on the audit front since the
+2026-08-06 entry (which left the initial AftPak report verified-but-insufficient, with a fuller
+report "expected the following week").
+
+**Nothing new arrived.** No new AftPak document exists beyond the three already logged
+(`aftpak_security_audit.pdf`, `aftpak_security_audit-v6.pdf`, and the actual paid engagement's
+initial report referenced in the 2026-08-06 entry). The promised fuller report is one day past
+that entry, well within "the following week" — not overdue yet.
+
+**Found and fixed stale language**: both `AUDIT_SCOPE.md` ("No audit has been performed") and
+`MAINNET_LAUNCH_RUNBOOK.md`'s audit gate ("no audit has started") still dated from 2026-08-05,
+before the AftPak engagement was disclosed. Neither was a security problem, but both understated
+what's actually true now — a real, verified-genuine engagement exists, even though it hasn't
+produced anything beyond automated-tooling-equivalent findings yet. Updated both to state the
+accurate current position: engagement real and technically checks out, manual/expert review
+still not delivered, this gate stays open. This is a documentation correction, not new audit
+progress — the gate's actual status (open) is unchanged.
+
+Also noted in passing, not acted on: an untracked `audit-output/gosec.json` (0 issues, 0 files
+scanned) sits in the repo root — looks like a broken/incomplete local gosec run from an earlier
+session, not a real deliverable. Left alone; flagged here so it isn't mistaken for audit
+evidence later.
+
 ## 2026-08-07 — Wallet build Phase 5: app-store compliance gate (partial — see `STORE_COMPLIANCE.md`)
 
 Started Phase 5. Split the work into what an agent can actually do versus what requires the
