@@ -2,6 +2,47 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-06 — LCV has engaged AftPak for an ongoing (2-year) security audit; verified their initial report's technical accuracy
+
+A third AftPak document surfaced (`aftpak_paid_audit_lcv-v2.pdf`, Doc No. Q4-06082026-AUDIT-LCV),
+this time in the context of a real, disclosed business decision: LCV has hired AftPak.com (Al
+Mahdi Fast Technologies Pvt. Ltd.) for a 2-year weekly security-audit engagement. This document
+is explicitly the *initial* report; a fuller audit with recommendations is expected the following
+week — not yet received as of this entry.
+
+Given the pattern from the two earlier AftPak documents (one contained a stale, already-fixed
+finding; both leaned heavily on restating this repo's own `SECURITY_SELF_ASSESSMENT.md`), this one
+got the same scrutiny: every checkable claim was independently re-derived from the current
+codebase rather than taken on trust.
+
+**Result: this document holds up substantially better than the previous two.**
+- Go version claim (1.25.8) matches `chain/go.mod` exactly.
+- `gosec` (run fresh, without `-exclude-generated` this time): **exactly 1,040 issues, 1,036 of
+  them rule G115** — matches the document's dashboard precisely.
+- `govulncheck ./cmd/lcvd/...` (run fresh): **exactly 19 vulnerabilities from 5 modules and the Go
+  standard library** — matches exactly. All three specific CVE IDs the document cites
+  (`GO-2026-5932` openpgp, `GO-2026-5856` crypto/tls ECH, `GO-2026-5039` net/textproto) are real,
+  current findings, not fabricated identifiers.
+- The document's claim that the openpgp vulnerability is "traced through" 5 specific files was
+  initially flagged as suspicious (none of the 5 contain the literal string "openpgp") — that
+  check was the wrong tool for the job. Reachability doesn't require the string to appear in the
+  file. Re-checked properly via the actual govulncheck call-graph trace and `go list -deps`: all
+  5 files are genuinely connected to that finding (3 confirmed as literal trace-chain nodes,
+  2 more confirmed via package-level dependency reachability for `cmd/gengenesis` and
+  `x/identity/types`, which weren't in the `./cmd/lcvd/...` scan's scope).
+
+**What this does and doesn't establish:** strong evidence this report reflects genuine, current
+tool execution against the real codebase, not recycled or stale claims like the earlier two
+documents. It does not establish manual/expert code review beyond automated tooling — the
+document's findings are entirely the same categories (`gosec`/`staticcheck`/`govulncheck`/`npm
+audit`) already run and documented in this repo's own `AUDIT_SCOPE.md`, with no narrative of
+hand-inspected logic beyond a bare "0 hand-written exploits found" line. Combined with it being
+explicitly the *initial* report in an ongoing engagement (fuller report expected the following
+week), `SECURITY_SELF_ASSESSMENT.md` and `AUDIT_SCOPE.md` remain unchanged — still the accurate
+statement of what's been independently completed so far. Website copy describing the AftPak
+engagement should describe its actual current stage (hired, initial report received, full report
+pending) rather than "audit completed."
+
 ## 2026-08-06 — Started the LCV wallet app: root monorepo + `packages/wallet-core` (Phase 0 & 1)
 
 Kicked off a new, explicitly-scoped multi-phase effort (plan at decision time:

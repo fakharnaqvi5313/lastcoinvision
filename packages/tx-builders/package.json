@@ -1,0 +1,43 @@
+{
+  "name": "@lastcoinvision/tx-builders",
+  "version": "0.1.0",
+  "description": "Fixed-fee wrappers over @lastcoinvision/sdk's module clients (identity, registry, voting, taxrail), wired to a wallet-core signer. Every sdk client method defaults its own `fee` parameter to \"auto\" -- that default is broken on this chain (see DECISIONS.md, 2026-08-03). This package exists so a wallet UI never has a code path that can reach that default: every method here takes a required, explicit StdFee (or a wallet-core TESTNET_DEFAULT_FEES constant), and the signer address is supplied once at connect time, not per call.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "grep -rn --include='*.ts' '\"auto\"' src && exit 1 || echo 'no auto-fee strings found'"
+  },
+  "dependencies": {
+    "@lastcoinvision/sdk": "^0.1.0",
+    "@lastcoinvision/wallet-core": "^0.1.0",
+    "@cosmjs/proto-signing": "^0.39.0",
+    "@cosmjs/stargate": "^0.39.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
