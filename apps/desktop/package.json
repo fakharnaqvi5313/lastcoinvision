@@ -1,0 +1,38 @@
+{
+  "name": "@lastcoinvision/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LCV desktop wallet (Tauri): a React/Vite frontend using @lastcoinvision/wallet-core and @lastcoinvision/tx-builders directly (both are browser-compatible, no Node runtime needed in the webview), with Rust src-tauri/ commands providing the only OS-native piece -- reading/writing the ENCRYPTED keystore blob to the platform secret store (macOS Keychain / Windows Credential Manager / Linux Secret Service) via the `keyring` crate. The webview never gets filesystem or process access (Tauri, unlike Electron, doesn't expose Node APIs to it) -- only the specific commands defined in src-tauri/src/lib.rs.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@lastcoinvision/sdk": "^0.1.0",
+    "@lastcoinvision/tx-builders": "^0.1.0",
+    "@lastcoinvision/ui-tokens": "^0.1.0",
+    "@lastcoinvision/wallet-core": "^0.1.0",
+    "@tauri-apps/api": "^2.11.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

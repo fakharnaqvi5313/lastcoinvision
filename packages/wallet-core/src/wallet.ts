@@ -60,6 +60,18 @@ export class LcvWallet {
     return getCosmosAddress(this.cosmosSigner);
   }
 
+  /**
+   * Returns the raw mnemonic. This exists for exactly one legitimate UI
+   * flow: showing a brand-new wallet's recovery phrase to the user ONCE at
+   * creation time so they can back it up. Callers must never log this
+   * value, send it over any network call, or hold onto it longer than the
+   * backup-display screen needs it — `toKeystore()` is the form meant for
+   * anything at rest, including in-memory caches.
+   */
+  revealMnemonic(): string {
+    return this.mnemonicValue;
+  }
+
   get evmAddress(): string {
     return this.evmAccount.address;
   }

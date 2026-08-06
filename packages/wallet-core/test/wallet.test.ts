@@ -42,4 +42,18 @@ describe("LcvWallet facade", () => {
     const keystore = await original.toKeystore("correct-password", FAST_TEST_PARAMS);
     await expect(LcvWallet.fromKeystore(keystore, "wrong-password", OPTIONS)).rejects.toThrow();
   });
+
+  it("revealMnemonic returns the exact mnemonic a wallet was created from", async () => {
+    const mnemonic = "test test test test test test test test test test test junk";
+    const wallet = await LcvWallet.fromMnemonic(mnemonic, OPTIONS);
+    expect(wallet.revealMnemonic()).toBe(mnemonic);
+  });
+
+  it("a wallet restored from keystore reveals the same mnemonic it was created from", async () => {
+    const original = await LcvWallet.create(OPTIONS);
+    const originalMnemonic = original.revealMnemonic();
+    const keystore = await original.toKeystore("a-strong-password", FAST_TEST_PARAMS);
+    const restored = await LcvWallet.fromKeystore(keystore, "a-strong-password", OPTIONS);
+    expect(restored.revealMnemonic()).toBe(originalMnemonic);
+  });
 });

@@ -2,6 +2,64 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-06 — Wallet build Phase 3: desktop app (`apps/desktop`, Tauri)
+
+Built the first real UI on top of `wallet-core`/`tx-builders`: a Tauri (React + Vite) desktop
+app with onboarding (create/import), unlock, and a dashboard showing both addresses with a
+plain send on each chain.
+
+**Real architecture deviation from the original wallet plan, documented in
+`apps/desktop/README.md`.** The plan's Phase 3 framing was "Rust shell means no bundled
+Node/Chromium in the process that touches decrypted keys," implying a Node sidecar or a full
+Rust reimplementation of `wallet-core`. Neither was necessary: `wallet-core`'s dependencies
+(`@cosmjs/*`, viem, `@noble/hashes`, `@noble/ciphers`) are all browser-compatible by design —
+the same code already runs inside Keplr/MetaMask's browser-extension context — so the frontend
+imports `wallet-core`/`tx-builders` directly and does all derivation/encryption/signing in the
+webview's JS. What actually makes this safer than Electron isn't "no Node in the process that
+signs" (Node isn't involved either way) — it's that Tauri's webview has **no Node.js
+integration by default** (no filesystem/process access beyond the specific commands defined in
+`src-tauri/src/lib.rs`), and loads no remote content, so a compromised-web-content attack
+surface doesn't apply the same way. The decrypted `LcvWallet` (mnemonic included, via the new
+`revealMnemonic()` method — added specifically for the one-time backup-display screen) lives
+only in the webview's JS heap for the session; nothing sensitive is ever written to disk outside
+the OS keychain.
+
+**Rust (`src-tauri/`) owns exactly one thing**: `keychain_set`/`keychain_get`/`keychain_delete`
+commands wrapping the `keyring` crate for OS-native secret storage (macOS Keychain / Windows
+Credential Manager / Linux Secret Service). These only ever see the encrypted keystore JSON
+string `wallet-core`'s `encryptKeystore` produces — never a raw mnemonic or private key.
+
+**Added `LcvWallet.revealMnemonic()` to `packages/wallet-core`** — the one legitimate UI flow
+that needs the raw mnemonic (showing a new wallet's recovery phrase once for backup). Explicit,
+documented method rather than reaching into the class's private field from the app layer; new
+unit tests cover it, full suite still green (30/30).
+
+**Verification** (no GUI screenshot was possible — this dev-mode binary isn't registered as a
+launchable macOS app, so the available computer-use tooling couldn't target its window by name;
+noted as a known gap, not skipped silently):
+- `cargo check` / `cargo build` (`npm run tauri:dev`) — clean compile, app window process
+  launches and stays running against the local devnet.
+- Frontend: `tsc --noEmit` clean, `vite build` clean, 5 new unit tests for `src/lib/network.ts`
+  (devnet/testnet config correctness, including that testnet's EVM RPC is deliberately `null`
+  rather than a guessed URL — no public EVM JSON-RPC endpoint for `lcv-testnet-1` is documented
+  anywhere in this repo).
+- **Real Rust integration test** (`src-tauri/tests/keychain.rs`) against this machine's actual
+  macOS Keychain — set/get/delete round-trip, and confirms a missing entry is reported as a
+  distinct `NoEntry` case rather than a generic error (fails closed).
+- **Real headless run** of the exact sequence `src/lib/session.tsx` drives
+  (`scripts/verify-session-flow.mjs`), against the live local devnet: create a wallet, confirm
+  the two addresses differ, round-trip through an encrypted keystore, and — not previously
+  exercised outside mocks — `LcvTxClients.connect()` against a real chain, followed by a real
+  REST query through the connected client. This is the same code path `Dashboard.tsx` calls;
+  proving it here closes the gap left by not being able to click through the actual window.
+
+Not done in this phase (tracked, not silently skipped): a real click-through GUI verification
+(needs either the user to run `npm run tauri:dev` and look, or a `tauri build` producing a
+proper installed `.app` bundle so computer-use tooling can address it by name — deferred as a
+disproportionate time cost for a dev-mode-only check); transaction history; the custom-module
+actions `tx-builders` wraps (identity/registry/voting/taxrail) in the dashboard UI; app-icon and
+bundle-identifier polish for real distribution (Phase 5).
+
 ## 2026-08-06 — Wallet build Phase 2: security review gate on `packages/wallet-core`
 
 Per the wallet plan, Phase 2 is a hard gate before any desktop/mobile UI work starts (Phase 3/4).

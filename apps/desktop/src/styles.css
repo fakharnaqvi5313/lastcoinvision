@@ -1,0 +1,183 @@
+/* Colors are set as CSS custom properties from @lastcoinvision/ui-tokens
+   at startup (see main.tsx) -- --navy-50..950 and --accent-50..900. */
+
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--navy-950);
+  color: var(--navy-50);
+  min-height: 100vh;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--navy-900);
+  border: 1px solid var(--navy-700);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.card h1 {
+  margin-top: 0;
+  font-size: 1.4rem;
+  color: var(--accent-500);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  color: var(--navy-200);
+}
+
+input,
+textarea {
+  background: var(--navy-950);
+  border: 1px solid var(--navy-600);
+  color: var(--navy-50);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: var(--accent-500);
+  color: var(--navy-950);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--navy-600);
+  color: var(--navy-50);
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.mnemonic-box {
+  background: var(--navy-950);
+  border: 1px dashed var(--accent-600);
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: ui-monospace, monospace;
+  line-height: 1.8;
+  word-spacing: 0.4rem;
+  color: var(--accent-300);
+}
+
+.warning {
+  font-size: 0.85rem;
+  color: var(--accent-400);
+  margin: 0.75rem 0;
+}
+
+.error {
+  font-size: 0.85rem;
+  color: #ff9c9c;
+  margin: 0.5rem 0;
+}
+
+.address-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--navy-950);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.address-row .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--navy-300);
+}
+
+.address-row .value {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  color: var(--navy-50);
+}
+
+.dashboard {
+  width: 100%;
+  max-width: 640px;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.tabs button {
+  background: var(--navy-800);
+  color: var(--navy-200);
+}
+
+.tabs button.active {
+  background: var(--accent-600);
+  color: var(--navy-950);
+}
+
+.muted {
+  color: var(--navy-300);
+  font-size: 0.85rem;
+}
+
+.tx-result {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--navy-950);
+  border-radius: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
