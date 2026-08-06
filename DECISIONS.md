@@ -2,6 +2,49 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Wallet build Phase 4: mobile app (`apps/mobile`, Expo/React Native)
+
+Built the mobile counterpart to Phase 3's desktop app: same feature set (create/import,
+unlock/forget device, dashboard with both addresses and a plain send per chain), same
+`wallet-core`/`tx-builders` business logic, ported to React Native screens.
+
+**Real architecture deviation from the original wallet plan, documented in
+`apps/mobile/README.md`.** The plan called for `react-native-keychain` and the bare/dev-client
+RN workflow. Neither is usable in this environment: this Mac's system Ruby (2.6.10) cannot build
+native gem extensions against the installed Xcode SDK, so `gem install cocoapods` fails, and
+without CocoaPods no bare/prebuild RN iOS build can run `pod install`. Rather than trying to
+repair the Ruby/Xcode toolchain (disproportionate for this task), pivoted the entire dependency
+set to Expo Go-compatible, no-native-linking modules: `expo-secure-store` (still backed by real
+iOS Keychain/Android Keystore) instead of `react-native-keychain`; `expo-crypto`'s
+`getRandomValues` instead of `react-native-get-random-values`; `expo-clipboard`; plain `buffer`
+for the global `Buffer` polyfill. The whole app now runs in plain Expo Go with zero native
+builds. Revisit only if a later phase needs a capability Expo Go doesn't expose.
+
+**`src/lib/polyfills.ts`, imported first in `index.ts`**, gives Hermes the `crypto.getRandomValues`
+and global `Buffer` that `@cosmjs/*`/viem/`@noble/*` assume exist (same browser-environment
+assumption Phase 3 relies on for Tauri's webview — Hermes just doesn't provide it natively).
+
+**Verification** (device/simulator UI verification not possible — see gap below):
+- `tsc --noEmit` and `vitest run` clean (4/4 tests, `src/lib/network.ts`).
+- **Real headless run** of `scripts/verify-session-flow.mjs` (identical in purpose to Phase 3's
+  script) against the live local devnet: wallet creation, dual-address derivation, keystore
+  round-trip, `LcvTxClients.connect()`, and a real REST query all succeed.
+- `npx expo export --platform ios` and `--platform android` both succeed, bundling 1400+ modules
+  (including `wallet-core`, `tx-builders`, and every crypto dependency they pull in) to Hermes
+  bytecode. **This caught a real bug**: Metro's module resolver does not map a `.js` import
+  specifier to a `.ts` file the way `tsc`'s `bundler`/`nodenext` resolution does, so every
+  relative import written as `"./foo.js"` (matching the desktop app's convention, which Vite/tsc
+  resolves fine) failed to bundle under Metro. Fixed by making all relative imports across
+  `apps/mobile` extensionless.
+- **Known gap, not skipped silently**: this environment's iOS Simulator control tool
+  (`mcp__Claude_Code_iOS_Simulator__control`) is down — `attach` and `screenshot` both fail with
+  "has stopped retrying after repeated crashes... ask the user to re-open the simulator panel."
+  A booted simulator exists (`iPhone 14`) but nothing here can currently drive or screenshot it.
+  This means the actual running-app behavior — the polyfills inside a live Hermes VM,
+  `expo-secure-store`'s real Keychain integration, and the rendered UI — is unverified beyond
+  what clean bundling and the headless logic script already show. Needs a real `npx expo start`
+  run once the simulator tooling is working again.
+
 ## 2026-08-06 — Wallet build Phase 3: desktop app (`apps/desktop`, Tauri)
 
 Built the first real UI on top of `wallet-core`/`tx-builders`: a Tauri (React + Vite) desktop

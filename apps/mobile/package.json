@@ -1,0 +1,34 @@
+{
+  "name": "@lastcoinvision/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "dependencies": {
+    "@lastcoinvision/sdk": "^0.1.0",
+    "@lastcoinvision/tx-builders": "^0.1.0",
+    "@lastcoinvision/ui-tokens": "^0.1.0",
+    "@lastcoinvision/wallet-core": "^0.1.0",
+    "buffer": "^6.0.3",
+    "expo": "~57.0.11",
+    "expo-clipboard": "~8.0.7",
+    "expo-crypto": "~15.0.7",
+    "expo-secure-store": "~15.0.7",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}
