@@ -11,10 +11,12 @@ workflows (identity, land registry, voting, tax), an EVM- and CosmWasm-compatibl
 contract layer, and a TypeScript developer platform. This site documents all of it —
 including the parts that aren't finished yet.
 
-This is documentation for **testnet/devnet software**. No independent security audit has
-been performed and there is no production mainnet — see the [validator
-handbook](/validator-handbook) and each module's limitations section before relying on
-anything here for a real deployment.
+This is documentation for **testnet/devnet software**. An independent security audit is
+underway but not yet complete — LastcoinVision has engaged AftPak.com (Al Mahdi Fast
+Technologies Pvt. Ltd.) for an ongoing security-audit engagement, with an initial assessment
+received and a fuller report expected soon — and there is no production mainnet. See the
+[validator handbook](/validator-handbook) and each module's limitations section before
+relying on anything here for a real deployment.
 
 ## Where to start
 

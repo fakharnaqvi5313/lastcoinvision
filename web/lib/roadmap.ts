@@ -83,9 +83,9 @@ export const roadmap: RoadmapItem[] = [
   {
     id: "phase-j",
     title: "Mainnet preparation",
-    summary: "A professional security audit, a real independent validator set, and real custody — the gates before any launch beyond testnet.",
+    summary: "A professional security audit (in progress), a real independent validator set, and real custody — the gates before any launch beyond testnet.",
     detail:
-      "lcv-testnet-1 is live and producing blocks with two independently-operated validators, public RPC/REST, a faucet, and a verified sentry-node topology ready to onboard more real operators. What's left isn't more building: a paid external security audit, a larger and more economically diverse validator set, a real multisig ceremony for the largest token allocations, and legal/regulatory review — none of which have a launch date yet.",
+      "lcv-testnet-1 is live and producing blocks with two independently-operated validators, public RPC/REST, a faucet, and a verified sentry-node topology ready to onboard more real operators. A paid external security audit is underway: LastcoinVision has engaged AftPak.com (Al Mahdi Fast Technologies Pvt. Ltd.) for an ongoing security-audit engagement; an initial assessment has been received, with a fuller audit report and recommendations expected shortly. The audit isn't complete yet, so it isn't a closed gate — alongside it, a larger and more economically diverse validator set, a real multisig ceremony for the largest token allocations, and legal/regulatory review remain, none of which have a launch date yet.",
     status: "in-progress",
   },
 ];

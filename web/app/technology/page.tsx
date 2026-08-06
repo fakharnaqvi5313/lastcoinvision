@@ -43,7 +43,7 @@ const limitations = [
   },
   {
     title: "This is testnet/devnet software",
-    body: "No independent security audit has been performed. No production mainnet exists. Nothing on this site is an offer or solicitation — see the token page's disclaimer.",
+    body: "An independent security audit is in progress but not yet complete — LastcoinVision has engaged AftPak.com (Al Mahdi Fast Technologies Pvt. Ltd.) for an ongoing security-audit engagement, with an initial assessment received and a fuller report expected soon. No production mainnet exists. Nothing on this site is an offer or solicitation — see the token page's disclaimer.",
   },
 ];
 
