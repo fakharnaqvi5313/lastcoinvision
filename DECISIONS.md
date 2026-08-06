@@ -2,6 +2,27 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Mainnet gate work: `VALIDATOR_HSM_RUNBOOK.md` for the consensus-key gate
+
+Wrote a concrete migration plan for `RELEASE_CHECKLIST.md` §2's still-open HSM/remote-signer
+item (`lcv-testnet-1`'s two validators both keep `priv_validator_key.json` as a plain file).
+**Deliberately did not touch either live validator** — a consensus-key migration done wrong
+causes an unrecoverable double-sign/tombstone, and that's each operator's call to execute on
+their own infrastructure and schedule, not something to run unattended.
+
+Presented two real options rather than picking one by default: tmkms + YubiHSM2 (single
+hardware signer per validator, simpler, matches the current one-operator-one-validator shape)
+versus Horcrux (threshold signing across independent cosigner machines, stronger guarantee, but
+needs each operator to run 3+ machines — a bigger lift than two solo operators currently
+justify). Recommended tmkms+YubiHSM2 as the practical starting point for this specific project,
+not as a universal best answer. The migration procedure section spells out the actual dangerous
+part explicitly: never run the old file-based key and a new remote signer against the same
+consensus key at the same time, and delete (not archive) the old key file once the new signer is
+confirmed working, so it can't accidentally be started up in parallel later.
+
+Cross-linked from `RELEASE_CHECKLIST.md` §2 and `MAINNET_LAUNCH_RUNBOOK.md`'s validator gate.
+Gate itself stays open — this is the plan, not the execution.
+
 ## 2026-08-07 — Mainnet gate check-in: AftPak audit status re-verified, stale "no audit started" language fixed
 
 User asked to work toward mainnet-launch readiness. Before touching any of the harder

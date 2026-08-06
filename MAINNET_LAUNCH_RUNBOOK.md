@@ -40,7 +40,9 @@ re-checked immediately before anyone treats §2 as actionable — don't let it g
       size, not a step toward a larger set.** Recorded as-is: that's a deliberate, accepted
       tradeoff on decentralization, not an oversight — see the same-day DECISIONS.md entry. What
       this gate still needs regardless of count: both validators meeting the hardware/HSM/sentry
-      bar below, not just existing.
+      bar below, not just existing. See [`VALIDATOR_HSM_RUNBOOK.md`](VALIDATOR_HSM_RUNBOOK.md)
+      (added 2026-08-07) for the concrete HSM/remote-signer migration plan — planned, not
+      executed on either live validator yet.
 - [ ] **Legal and regulatory review of the tokenomics is complete**, with real counsel, before
       any real value is at stake. Nothing in this repo constitutes that review.
 - [ ] **A real bug bounty program is live**, or a documented decision that mainnet launches

@@ -119,7 +119,9 @@ validator that has them, the rest stay open regardless of count.
       [`docs/docs/validator-handbook.md`](docs/docs/validator-handbook.md#key-management-and-hsm-guidance) —
       HSM/remote-signer-backed, never duplicated across hosts. `priv_validator_key.json` is a
       plain file on the VPS, not HSM-backed — real infrastructure investment needed before
-      this applies.
+      this applies. See [`VALIDATOR_HSM_RUNBOOK.md`](VALIDATOR_HSM_RUNBOOK.md) for the concrete
+      migration plan (tmkms+YubiHSM2 vs. Horcrux, and the cutover procedure) — not yet executed,
+      needs each operator's own hardware and maintenance window.
 - [x] Operator key kept separate from the validator host. The `validator0` operator key
       (used to sign the gentx) was generated and has only ever lived on the machine that ran
       `init-testnet-genesis.sh` — it was never copied to the VPS. Only the resulting signed
