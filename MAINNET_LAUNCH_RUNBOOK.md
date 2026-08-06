@@ -32,10 +32,15 @@ re-checked immediately before anyone treats §2 as actionable — don't let it g
       separate people on genuinely separate machines, not the current one-machine ceremony
       (see DECISIONS.md, 2026-08-05). A single-machine "multisig" is not a multisig for
       security purposes; it's a same-day placeholder that happens to look like one on-chain.
+      See [`MULTISIG_CEREMONY_RUNBOOK.md`](MULTISIG_CEREMONY_RUNBOOK.md) (added 2026-08-07) for
+      the concrete ceremony procedure — planned, no real signers or keys generated yet, since
+      that step is a real-people coordination exercise this document deliberately doesn't do.
 - [ ] **Team, investors, public, and community addresses are real custody**, not the current
       single-key, one-machine placeholders (see DECISIONS.md, 2026-08-05). `public`'s address
       is also blocked on deciding an actual distribution mechanism — the address is secondary
-      to that decision, not the other way around.
+      to that decision, not the other way around. See `MULTISIG_CEREMONY_RUNBOOK.md`'s bucket
+      table for which of these need a multisig vs. per-individual vesting custody — they're not
+      all the same shape.
 - [ ] **The validator set meets §2 of `RELEASE_CHECKLIST.md`** (dedicated hardware,
       HSM/remote-signer-backed consensus keys, sentry-node topology — now verified working
       end-to-end via `deploy/k8s/`, 2026-08-05 — or an equivalent non-k8s setup).
@@ -48,10 +53,17 @@ re-checked immediately before anyone treats §2 as actionable — don't let it g
       (added 2026-08-07) for the concrete HSM/remote-signer migration plan — planned, not
       executed on either live validator yet.
 - [ ] **Legal and regulatory review of the tokenomics is complete**, with real counsel, before
-      any real value is at stake. Nothing in this repo constitutes that review.
+      any real value is at stake. Nothing in this repo constitutes that review. See
+      [`LEGAL_REVIEW_SCOPE.md`](LEGAL_REVIEW_SCOPE.md) (added 2026-08-07) — a briefing document
+      for whoever gets engaged as real counsel, explicitly not legal advice itself. Review not
+      started; needs the user to actually engage counsel.
 - [ ] **A real bug bounty program is live**, or a documented decision that mainnet launches
       without one and why — `SECURITY.md`'s current "no bug bounty, devnet/testnet-stage,
       no real value at stake" framing stops being accurate the moment mainnet has real value.
+      See [`BUG_BOUNTY_POLICY.md`](BUG_BOUNTY_POLICY.md) (added 2026-08-07) — a ready-to-launch
+      draft (severity/payout tiers, platform choice, response commitments) with real payout
+      numbers left as TBD pending a funding decision. Not live; `SECURITY.md` still accurately
+      says there's no bounty program today.
 - [ ] **`lcv-testnet-1` (or a successor testnet) has run under real conditions for a
       meaningful stretch of time** — uptime, real transaction volume, at least one real
       governance-triggered upgrade rehearsed on a persistent (not disposable-devnet) network.

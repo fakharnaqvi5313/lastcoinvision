@@ -2,6 +2,52 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Drafted the three remaining pure-documentation mainnet gates: bug bounty, legal scope, multisig ceremony
+
+User said to keep working. Of `MAINNET_LAUNCH_RUNBOOK.md`'s six hard gates, three had already
+gotten real progress today (audit check-in, HSM runbook + local tmkms rehearsal, v3 upgrade
+handler + local dry-run). The remaining three — bug bounty, legal/regulatory review, treasury/
+custody multisigs — all have one thing in common: the actual gate-closing action needs either
+real money (bounty payouts), real outside counsel, or real separate humans generating separate
+keys, none of which this agent can substitute for. What's genuinely actionable without any of
+that: writing the process/scope documents now, the same pattern already used for
+`AUDIT_FINDINGS_RESPONSE.md` and `VALIDATOR_HSM_RUNBOOK.md` — decide the shape of the thing
+before there's time pressure, not after.
+
+**`BUG_BOUNTY_POLICY.md`**: a ready-to-launch draft reusing `AUDIT_FINDINGS_RESPONSE.md`'s
+severity scale (one classification system for the whole project, not a competing one for
+bounties specifically), self-run-vs-hosted-platform tradeoffs, and an explicit launch checklist.
+Payout numbers left as **TBD** rather than invented — a specific dollar figure needs real
+treasury/budget authority, not a plausible-sounding guess. `SECURITY.md`'s "no bug bounty
+program" framing stays accurate until this is actually funded and launched.
+
+**`LEGAL_REVIEW_SCOPE.md`**: explicitly headed "not legal advice" — a briefing document for
+whoever gets engaged as real counsel, mirroring `AUDIT_SCOPE.md`'s "brief the auditor" role.
+Flags what's specific to this project (government-facing modules with real-world legal
+analogues — `x/voting` is elections, `x/registry` is land-registry/title, `x/taxrail` routes tax
+payments; the full, real allocation/vesting table; no token sale has happened) without
+attempting to answer the securities-classification question itself, which is exactly what
+counsel is for. Verified the allocation percentages cited (25/20/15/15/8/5/12%) against
+`scripts/genesis/init-testnet-genesis.sh` rather than from memory before writing them down.
+
+**`MULTISIG_CEREMONY_RUNBOOK.md`**: same "plan it, don't execute it" posture as the HSM runbook
+— a real multisig's entire value comes from separate people holding separate keys, so writing
+this document is explicitly not the same action as running the ceremony. Broke down which
+allocation buckets actually need a shared multisig (`treasury`, `ecosystem` — ongoing
+discretionary pools) versus per-individual vesting custody (`team`, `investors` — vesting
+accounts lock to one address each, so a shared multisig standing in for many people's
+allocations isn't the same problem as "not yet a real multisig," it's "not yet actually
+allocated to individuals"). **Caught and fixed a real inaccuracy before committing**: initially
+wrote the `lcvd keys add --multisig` invocation from memory as a single command taking raw
+pubkeys directly; checked `lcvd keys add --help` and found it actually requires each signer's
+pubkey imported as a named local keyring entry first (`--pubkey-base64`), then a second command
+building the multisig from those names — corrected before this became a wrong instruction
+someone might actually run during a real ceremony.
+
+All three cross-linked from their respective gates in `MAINNET_LAUNCH_RUNBOOK.md`. None of the
+three gates themselves move — this is process readiness, not progress on the underlying human/
+financial/legal actions.
+
 ## 2026-08-07 — tmkms remote-signer wiring rehearsed locally (softsign), ahead of any real HSM
 
 User asked to move on to the validator HSM migration. The actual live migration has a hard
