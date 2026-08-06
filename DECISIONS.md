@@ -2,6 +2,39 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — tmkms remote-signer wiring rehearsed locally (softsign), ahead of any real HSM
+
+User asked to move on to the validator HSM migration. The actual live migration has a hard
+blocker no amount of software work removes: it needs a physical YubiHSM2 (~$650) that doesn't
+exist, and `VALIDATOR_HSM_RUNBOOK.md` already says touching either live validator's consensus
+key is the operator's own call regardless — a botched migration causes an unrecoverable
+double-sign/tombstone. Said so directly rather than either attempting the live migration or
+silently doing something smaller without explaining the substitution.
+
+What's actually achievable without hardware: proving the tmkms↔`lcvd` remote-signer protocol
+itself works, using tmkms's `softsign` provider (plain-file key, dev/test only — same wire
+protocol a real YubiHSM2-backed setup would use, none of the actual hardware protection). Built
+tmkms 0.15.0 from source (`cargo install tmkms --features=softsign`), stood up a disposable
+single-validator local devnet, imported its consensus key into tmkms, pointed its
+`priv_validator_laddr` at tmkms, and confirmed sustained block signing (proposal/prevote/
+precommit at every height, 19+ blocks) with the validator's local `priv_validator_key.json` out
+of the signing path entirely.
+
+**Real findings from doing this hands-on, not just planning it** (written up in
+`VALIDATOR_HSM_RUNBOOK.md`'s new "Rehearsed locally" section): `lcvd` fails fast rather than
+waiting if the remote signer isn't already up and retrying when `lcvd` starts (confirms the
+runbook's startup-order requirement is a hard requirement, not just good practice); confirmed
+via `cometbft` source that `lcvd` is the listener and the remote signer dials out, not the
+reverse; tmkms's default template config uses the deprecated `protocol_version = "v0.34"`, wrong
+for this chain's actual CometBFT v0.38.x; and a real unresolved gap — the rehearsal's config
+omitted the validator peer-ID pin in `[[validator]].addr`, so tmkms logged "unverified validator
+peer ID" and would sign for any endpoint claiming to be the right one. Fine for a throwaway
+devnet, a real gap to close before this touches production.
+
+Had to stop and restart the standard local `make devnet` instance again to free its ports for
+this rehearsal (same constraint as the v3 upgrade dry run) — restored afterward, and the
+rehearsal's own throwaway directories were deleted, not left behind.
+
 ## 2026-08-07 — Wrote `AUDIT_FINDINGS_RESPONSE.md`; declined to mark the audit gate closed
 
 User asked to close the mainnet audit gate ("I'm satisfied to Audit, closed this gate"). Declined:

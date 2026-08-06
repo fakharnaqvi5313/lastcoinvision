@@ -93,6 +93,38 @@ irreversible:
    the real, post-migration state, per-validator (this gate is per-validator, not "any one
    validator did it").
 
+## Rehearsed locally with a software signer (2026-08-07)
+
+Before this ever touches a live validator, ran the actual tmkms↔`lcvd` wiring end-to-end against
+a disposable single-node local devnet, using tmkms's `softsign` provider (a plain-file software
+key — dev/test only, gives none of a real HSM's protection, but speaks the exact same remote-
+signer protocol a YubiHSM2-backed tmkms would). **Worked, and kept signing every block for the
+full run** — this is empirical confirmation of the mechanics above, not just a plan:
+
+- **Startup order matters and is unforgiving.** Starting `lcvd` before the remote signer is
+  already up and retrying fails fast: `lcvd` calls `GetPubKey()` once at startup with a short
+  timeout, and exits with `error with private validator socket client: can't get pubkey: send:
+  endpoint connection timed out` if nothing answers — it does not wait indefinitely. Confirms
+  step 3's ordering above is a hard requirement, not just a good habit: **start the remote signer
+  first** (with `reconnect = true`, so it's actively dialing) and only then start `lcvd`.
+- **Connection direction**: `lcvd`'s `priv_validator_laddr` is what it *listens* on; the remote
+  signer is the one that *dials out* to that address, not the other way around (confirmed against
+  `cometbft`'s own `node/setup.go` — `createAndStartPrivValidatorSocketClient` wraps a
+  `SignerListener` on the `lcvd` side).
+- **`protocol_version` must match the real CometBFT version** — tmkms's default generated config
+  uses `v0.34` as a placeholder and logs a deprecation warning; this chain runs CometBFT v0.38.x,
+  so `protocol_version = "v0.38"` is the correct value here, not the template default.
+- **Real gap found, not yet closed**: tmkms logged `unverified validator peer ID!` on connect,
+  because the rehearsal's `[[validator]].addr` omitted the `ID@` prefix its own generated
+  template includes (`tcp://<ID>@host:port`). Without it, tmkms accepts the connection without
+  verifying which validator it's actually talking to — fine for a disposable local rehearsal,
+  **not fine for production**: a real migration must pin the actual validator peer ID in that
+  field so tmkms refuses to sign for an unexpected/spoofed endpoint. Not resolved here since it
+  needs the specific target validator's real identity, not a devnet throwaway's.
+
+Rehearsal cleaned up afterward — no lasting state, and the standard local `make devnet` instance
+(stopped to free the ports this needed) was restored to how it was found.
+
 ## What closes this gate
 
 Both current `lcv-testnet-1` validators completing the migration above (or a future validator
