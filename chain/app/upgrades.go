@@ -2,6 +2,7 @@ package app
 
 import (
 	v2 "github.com/lastcoinvision/lcv/app/upgrades/v2"
+	v3 "github.com/lastcoinvision/lcv/app/upgrades/v3"
 )
 
 // setupUpgradeHandlers registers every named software upgrade this binary
@@ -12,5 +13,9 @@ func (app *App) setupUpgradeHandlers() {
 	app.UpgradeKeeper.SetUpgradeHandler(
 		v2.UpgradeName,
 		v2.CreateUpgradeHandler(app.ModuleManager, app.Configurator()),
+	)
+	app.UpgradeKeeper.SetUpgradeHandler(
+		v3.UpgradeName,
+		v3.CreateUpgradeHandler(app.ModuleManager, app.Configurator()),
 	)
 }

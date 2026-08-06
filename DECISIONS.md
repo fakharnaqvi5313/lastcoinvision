@@ -2,6 +2,42 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — v3 upgrade handler written and rehearsed locally, ahead of a real lcv-testnet-1 submission
+
+Toward `MAINNET_LAUNCH_RUNBOOK.md`'s "rehearse a real governance-triggered upgrade on a
+persistent network" gate: `chain/app/upgrades/v2` was already demonstrated end-to-end, but only
+against a disposable devnet, and `lcv-testnet-1`'s genesis-time binary already had `v2`
+registered from the start — it was never actually *crossed* via governance on this chain's real
+history. Added `chain/app/upgrades/v3` (same no-op-migration shape as `v2`) as the plan this
+project will actually schedule on the live chain for real, and registered it in
+`chain/app/upgrades.go` alongside `v2` (old handlers stay registered, per the existing pattern).
+
+**Before touching the live chain**, ran the exact same rigor already established for `v2`:
+wrote `scripts/upgrade/build-pre-v3-binary.sh` (comments out just the `v3` registration +
+import, keeping `v2` registered — the "before" binary a real chain would actually be running)
+and `scripts/upgrade/submit-v3-upgrade-dryrun.sh` (adapted from `submit-upgrade-proposal.sh`) to
+rehearse the full submit→vote→pass→halt→swap→resume sequence against a disposable devnet first.
+**Passed cleanly**: proposal submitted and passed, pre-v3 binary halted at exactly the target
+height with the expected `UPGRADE "v3" NEEDED` error, binary swap brought the chain back and it
+kept producing blocks past that height.
+
+Had to stop the long-running local `make devnet` instance to free its ports for this dry run
+(the RPC ports are hardcoded per-validator in `scripts/genesis/init-genesis.sh`, not
+`OUTPUT_DIR`-relative, so a second concurrent devnet isn't possible without them colliding) —
+restored it afterward via `make devnet` so nothing else relying on a running local devnet was
+left broken.
+
+**Not yet done, and deliberately not attempted without checking in first**: submitting the real
+`MsgSoftwareUpgrade` proposal on `lcv-testnet-1` itself. Unlike the dry run, this is a live,
+publicly-reachable network (`rpc.`/`api.lastcoinvision.com`, the faucet, the explorer, and this
+project's own docs tutorials all point at it) with a real governance voting period (48h per the
+2026-08-06 precedent) and two validators that are genuinely separate infrastructure — SSH access
+to both exists in this environment (`~/.ssh/illuminati_vps_key` for the first VPS,
+`~/.ssh/krovacoin_vps` for the second), so execution is technically possible, but a multi-day,
+publicly-visible operation against live shared infrastructure with real (if brief and expected)
+downtime at the upgrade height is exactly the kind of action that gets a check-in before
+proceeding, not just a green light inferred from "work the open gates."
+
 ## 2026-08-07 — Mainnet gate work: `VALIDATOR_HSM_RUNBOOK.md` for the consensus-key gate
 
 Wrote a concrete migration plan for `RELEASE_CHECKLIST.md` §2's still-open HSM/remote-signer
