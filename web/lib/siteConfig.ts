@@ -30,6 +30,7 @@ export const siteConfig = {
       { href: "https://faucet.lastcoinvision.com", label: "Testnet faucet" },
       { href: "https://explorer.lastcoinvision.com", label: "Explorer" },
     ],
+    Legal: [{ href: "/privacy", label: "Privacy Policy" }],
   },
   chainIds: {
     mainnet: "lastcoinvision-1",

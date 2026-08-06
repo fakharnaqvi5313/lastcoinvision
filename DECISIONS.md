@@ -2,6 +2,32 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Wallet build Phase 5: app-store compliance gate (partial — see `STORE_COMPLIANCE.md`)
+
+Started Phase 5. Split the work into what an agent can actually do versus what requires the
+account owner's own legal/business identity and payment method, and did the former:
+
+- **Added `web/app/privacy/page.tsx`** (linked from the site footer via a new "Legal" column in
+  `web/lib/siteConfig.ts`), stating the wallet apps' non-custodial model plainly: keys are
+  generated/encrypted/signed entirely on-device, no backend ever sees them, no analytics or
+  crash-reporting SDK is in either wallet app today, and what the RPC/REST network calls do
+  expose (IP address to whichever node the app talks to — same as any blockchain wallet).
+  Verified this claim by grepping both wallet apps for analytics/telemetry SDK names before
+  writing it — true as of this commit, not a boilerplate assumption.
+- **Wrote `STORE_COMPLIANCE.md`** as the phase's tracking document (same role
+  `RELEASE_CHECKLIST.md` plays for the testnet launch): itemizes what's done, what's explicitly
+  blocked on the account owner (Apple Developer Program org enrollment — needs a real business
+  entity, a D-U-N-S number, and the $99/year fee; Google Play Console org account — needs
+  business verification and the $25 fee), draft store-listing copy ready for when those unblock,
+  and the distribution-mechanics gap (no local CocoaPods means no local iOS archive path — EAS
+  Build is the documented way around it once an Apple account exists).
+
+**Deliberately did not**: create any developer-program account, agree to any terms, or spend any
+money — creating accounts and making payments are both outside what this agent does on someone's
+behalf regardless of instruction, and Apple/Google both require a real legal identity behind the
+enrollment that only the account owner has. This phase stays partially open until those two
+external steps happen; `STORE_COMPLIANCE.md` tracks exactly what's left.
+
 ## 2026-08-07 — Wallet build Phase 4: mobile app (`apps/mobile`, Expo/React Native)
 
 Built the mobile counterpart to Phase 3's desktop app: same feature set (create/import,
