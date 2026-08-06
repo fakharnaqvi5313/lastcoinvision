@@ -40,7 +40,16 @@ npx expo start               # scan the QR code in Expo Go, or press i/a for a s
 ```
 
 The default network is `lcv-devnet` (`src/lib/network.ts`) — start one with `make devnet` from
-the repo root first.
+the repo root first. A distributed build (EAS, see below) defaults to `lcv-testnet-1` instead,
+since a real device can't reach `localhost`.
+
+## Building for TestFlight / Play Internal Testing
+
+`eas.json` has `development`/`preview`/`production` build profiles ready. Actually running them
+(`eas build`) needs an Expo/EAS account login and, for an installable iOS build, an Apple
+Developer Program membership — neither of which this repo's tooling sets up for you. See
+[`STORE_COMPLIANCE.md`](../../STORE_COMPLIANCE.md) at the repo root for the full compliance
+checklist and what's still outstanding.
 
 ## What's here (Phase 4 scope)
 

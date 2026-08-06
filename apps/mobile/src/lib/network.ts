@@ -35,4 +35,9 @@ export const NETWORKS: Record<"devnet" | "testnet", NetworkConfig> = {
   },
 };
 
-export const DEFAULT_NETWORK: keyof typeof NETWORKS = "devnet";
+// EAS builds (see ../../eas.json) set EXPO_PUBLIC_LCV_NETWORK="testnet" for preview/production
+// profiles -- a real device running a distributed build can't reach "localhost", so defaulting
+// to devnet there would just fail to connect until the user finds the in-app network switcher.
+// Plain `npx expo start` leaves this unset and keeps the devnet default for local development.
+export const DEFAULT_NETWORK: keyof typeof NETWORKS =
+  process.env.EXPO_PUBLIC_LCV_NETWORK === "testnet" ? "testnet" : "devnet";

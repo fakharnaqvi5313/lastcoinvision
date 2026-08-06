@@ -28,6 +28,18 @@ behalf regardless of instruction, and Apple/Google both require a real legal ide
 enrollment that only the account owner has. This phase stays partially open until those two
 external steps happen; `STORE_COMPLIANCE.md` tracks exactly what's left.
 
+**Follow-up, same day: `apps/mobile/eas.json`.** Wrote EAS Build's `development`/`preview`/
+`production` profiles ahead of when an Apple/Google account exists to actually run them. Doing
+this surfaced a real bug worth fixing regardless of store timing: `network.ts`'s
+`DEFAULT_NETWORK` was hardcoded to `"devnet"`, meaning any real distributed build (TestFlight,
+Play Internal Testing, or just a `.apk` sideloaded to a friend's phone) would try to reach
+`localhost:26657` on first launch — a URL meaningless off the dev machine — and silently fail to
+connect before a tester ever discovers the in-app network switcher. Fixed by having
+`preview`/`production` set `EXPO_PUBLIC_LCV_NETWORK=testnet` in `eas.json`, and `network.ts` read
+it (falling back to `devnet`, unchanged, for local `npx expo start`). Verified `tsc`/`vitest`
+stay clean and `EXPO_PUBLIC_LCV_NETWORK=testnet npx expo export` still bundles correctly — no
+`eas build` run, since that needs an EAS account login this agent won't create.
+
 ## 2026-08-07 — Wallet build Phase 4: mobile app (`apps/mobile`, Expo/React Native)
 
 Built the mobile counterpart to Phase 3's desktop app: same feature set (create/import,

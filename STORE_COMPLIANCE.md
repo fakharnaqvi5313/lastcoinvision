@@ -24,6 +24,14 @@ moment those steps happen, not so it can claim they're done.
 - [x] **Testnet-only framing exists in-app** — both apps default to `lcv-devnet`/`lcv-testnet-1`
   (`apps/desktop/src/lib/network.ts`, `apps/mobile/src/lib/network.ts`); no mainnet chain id
   exists yet for either app to point at (see Phase 6 gate).
+- [x] **`apps/mobile/eas.json` build profiles written** — `development`/`preview`/`production`,
+  with preview and production setting `EXPO_PUBLIC_LCV_NETWORK=testnet` so a real distributed
+  build defaults to the public testnet instead of `localhost` (which no tester's device can
+  reach) on first launch; `src/lib/network.ts` reads it, falling back to `devnet` for local
+  `npx expo start`. Verified: `tsc`/`vitest` still clean, and `EXPO_PUBLIC_LCV_NETWORK=testnet
+  npx expo export` still bundles correctly. This is config only — no `eas build` has been run
+  (that needs an Expo/EAS account login, and for an installable iOS build, the Apple Developer
+  account from §2).
 
 ## §2 — Blocked on the account owner (cannot be done by an agent)
 
@@ -69,12 +77,14 @@ happening is its own compliance problem.
 
 ## §4 — Distribution mechanics (TestFlight / Play Internal Testing)
 
+- [x] **`eas.json` build profiles** — done, see §1.
 - [ ] **iOS build path.** This dev environment's system Ruby cannot build CocoaPods (see
   [`apps/mobile/README.md`](apps/mobile/README.md) and the 2026-08-07 `DECISIONS.md` entry) —
   there is no local `pod install`/Xcode archive path today. The realistic route once an Apple
   Developer account exists is an **EAS Build** (Expo's cloud build service) targeting a real
-  bundle identifier, which sidesteps the local CocoaPods gap entirely. Not yet attempted; needs
-  an Expo/EAS account and, for anything beyond internal builds, the Apple Developer Program
+  bundle identifier, which sidesteps the local CocoaPods gap entirely. `eas.json` is ready;
+  actually running `eas build` needs an Expo/EAS account login (an agent won't create one — see
+  §2's reasoning) and, for anything beyond internal builds, the Apple Developer Program
   membership from §2 (EAS still needs Apple's signing credentials to produce an
   App-Store-installable build).
 - [ ] **Android build path.** `expo build`/EAS Build for Android doesn't have the CocoaPods
