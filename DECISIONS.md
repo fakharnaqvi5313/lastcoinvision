@@ -2,6 +2,15 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Mirrored the "Show public key" feature in `apps/mobile`
+
+Same real gap as the desktop addition applies to mobile: a multisig signer may only have their
+phone handy, not this Mac. Reused `wallet-core`'s already-tested `cosmosPubkeyJson()` unchanged;
+added matching `linkButton`/`pubkeyBox` styles to `theme.ts` and a tap-to-copy pubkey box to
+`Dashboard.tsx`. Verified `tsc --noEmit`, `vitest` (4/4), and a full Metro/Hermes bundle export
+(1464 modules) all stay clean — live UI confirmation blocked by the same iOS Simulator tool
+outage already documented in Phase 4.
+
 ## 2026-08-07 — Added `cosmosPubkeyJson()` to wallet-core + a "Show public key" button in the desktop wallet
 
 Starting the real treasury multisig ceremony (`MULTISIG_CEREMONY_RUNBOOK.md`) surfaced a real
