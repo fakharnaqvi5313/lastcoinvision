@@ -2,6 +2,21 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Fixed a real bug in `SIGNER_SETUP.md`'s desktop app instructions
+
+A real signer following Option A hit `[plugin:vite:import-analysis] Failed to resolve entry for
+package "@lastcoinvision/ui-tokens"` — the instructions had `npm install` then straight into
+`cd apps/desktop && npm run tauri:dev`, missing the step that builds the shared internal
+workspace packages (`ui-tokens`, `wallet-core`, etc.) that `apps/desktop` depends on. `npm
+install` only symlinks workspace packages' source; it doesn't build them.
+
+**Verified the fix before sending it back**, not just reasoned about it: cloned the repo fresh
+into a scratch directory, ran `npm install` with no pre-built `dist/` anywhere, confirmed `npm
+run build` (the root Turborepo script, `dependsOn: ["^build"]`) produces `packages/ui-tokens/
+dist/`, then ran `apps/desktop`'s own `npm run build` (`tsc --noEmit && vite build`) and got a
+clean build — 1,057 modules, no resolution errors. Added `npm run build` as its own step in
+`SIGNER_SETUP.md`, with an explanation of what it's for and what error skipping it produces.
+
 ## 2026-08-07 — Trimmed `chain/third_party/cosmos-evm-patched`: 465 Dependabot alerts were vendoring noise, not real risk
 
 Pushing the Dependabot-triage commit (below) surfaced something much bigger than the 7 alerts it

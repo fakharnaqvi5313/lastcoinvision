@@ -27,9 +27,15 @@ terminal commands to build it once)
 git clone https://github.com/fakharnaqvi5313/lastcoinvision.git
 cd lastcoinvision
 npm install
+npm run build
 cd apps/desktop
 npm run tauri:dev
 ```
+
+The `npm run build` step (from the repo root, before `cd apps/desktop`) is required — it builds
+the shared internal packages the desktop app depends on. Skipping it causes a
+`Failed to resolve entry for package "@lastcoinvision/ui-tokens"` error when the app tries to
+start.
 
 The first run takes a few minutes (it's compiling a real desktop app, not downloading a
 pre-built one — this project doesn't have a packaged installer yet). Once the window opens:
