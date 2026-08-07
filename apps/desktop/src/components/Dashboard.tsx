@@ -22,6 +22,25 @@ export default function Dashboard() {
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  const [pubkeyJson, setPubkeyJson] = useState<string | null>(null);
+  const [pubkeyCopied, setPubkeyCopied] = useState(false);
+
+  async function togglePubkey() {
+    if (!wallet) return;
+    if (pubkeyJson) {
+      setPubkeyJson(null);
+      return;
+    }
+    setPubkeyJson(await wallet.cosmosPubkeyJson());
+    setPubkeyCopied(false);
+  }
+
+  async function copyPubkey() {
+    if (!pubkeyJson) return;
+    await navigator.clipboard.writeText(pubkeyJson);
+    setPubkeyCopied(true);
+  }
+
   const refreshBalances = useCallback(async () => {
     if (!wallet || !cosmosAddress) return;
     setBalanceError(null);
@@ -136,6 +155,21 @@ export default function Dashboard() {
           <span className="label">Cosmos address</span>
           <span className="value">{cosmosAddress}</span>
           <span className="muted">{cosmosBalance !== null ? `${cosmosBalance} ulcv` : "—"}</span>
+          <button className="link-btn" onClick={() => void togglePubkey()}>
+            {pubkeyJson ? "Hide public key" : "Show public key"}
+          </button>
+          {pubkeyJson && (
+            <>
+              <span className="muted">
+                Safe to share — e.g. with whoever is constructing a multisig you're one signer of. Never share your
+                recovery phrase.
+              </span>
+              <span className="value pubkey-json">{pubkeyJson}</span>
+              <button className="link-btn" onClick={() => void copyPubkey()}>
+                {pubkeyCopied ? "Copied" : "Copy"}
+              </button>
+            </>
+          )}
         </div>
         <div className="address-row">
           <span className="label">EVM address</span>

@@ -1,3 +1,4 @@
+import { toBase64 } from "@cosmjs/encoding";
 import type { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 
 /**
@@ -18,4 +19,22 @@ export async function getCosmosAddress(signer: CosmosSigner): Promise<string> {
     throw new Error("Cosmos signer produced no accounts");
   }
   return account.address;
+}
+
+/**
+ * The account's public key, JSON-encoded exactly as `lcvd keys add
+ * --pubkey` expects it — this is the one piece of information a multisig
+ * ceremony participant needs to share (see MULTISIG_CEREMONY_RUNBOOK.md):
+ * safe to hand to whoever is constructing the multisig account, unlike the
+ * mnemonic or any private key material.
+ */
+export async function getCosmosPubkeyJson(signer: CosmosSigner): Promise<string> {
+  const [account] = await signer.getAccounts();
+  if (!account) {
+    throw new Error("Cosmos signer produced no accounts");
+  }
+  return JSON.stringify({
+    "@type": "/cosmos.crypto.secp256k1.PubKey",
+    key: toBase64(account.pubkey),
+  });
 }

@@ -5,7 +5,7 @@ import { deriveCosmosSigner, deriveEvmAccount } from "./derive.js";
 import { DEFAULT_KDF_PARAMS, decryptKeystore, encryptKeystore } from "./keystore.js";
 import type { Argon2idParams, EncryptedKeystoreV1 } from "./keystore.js";
 import { generateMnemonic } from "./mnemonic.js";
-import { getCosmosAddress } from "./signers/cosmosSigner.js";
+import { getCosmosAddress, getCosmosPubkeyJson } from "./signers/cosmosSigner.js";
 
 export interface LcvWalletOptions {
   /** bech32 address prefix, e.g. "lcv". */
@@ -58,6 +58,16 @@ export class LcvWallet {
 
   async cosmosAddress(): Promise<string> {
     return getCosmosAddress(this.cosmosSigner);
+  }
+
+  /**
+   * This account's Cosmos public key, in the exact JSON `lcvd keys add
+   * --pubkey` expects. Unlike `revealMnemonic()`, this is meant to be
+   * shared — e.g. with whoever is constructing a multisig account this
+   * wallet will be one signer of. Never derives or exposes the private key.
+   */
+  async cosmosPubkeyJson(): Promise<string> {
+    return getCosmosPubkeyJson(this.cosmosSigner);
   }
 
   /**

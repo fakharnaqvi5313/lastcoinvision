@@ -2,6 +2,34 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Added `cosmosPubkeyJson()` to wallet-core + a "Show public key" button in the desktop wallet
+
+Starting the real treasury multisig ceremony (`MULTISIG_CEREMONY_RUNBOOK.md`) surfaced a real
+gap: signers need an easy way to generate a key and get their public key (safe to share) without
+building `lcvd` from source or downloading a draft GitHub release binary. `apps/desktop` already
+generates real `lcv1...` keys via a GUI, but never surfaced the raw public key, only the address.
+
+Added `getCosmosPubkeyJson()` (`packages/wallet-core/src/signers/cosmosSigner.ts`) and
+`LcvWallet.cosmosPubkeyJson()`, returning the exact JSON shape `lcvd keys add --pubkey` expects
+(`{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"<base64>"}`) — verified command syntax
+directly against `lcvd keys add --help` and a real local multisig construction (generate two
+keys, export/import pubkeys, build a 2-of-2 multisig) before writing any wallet-core code, not
+assumed from memory. New test independently re-derives the address from the exported pubkey via
+`@cosmjs/amino`'s `pubkeyToAddress` — a separate code path than wallet-core's own signer — and
+checks it matches `cosmosAddress()`, proving the export is the real pubkey, not just well-formed
+output. Added a "Show public key" toggle + copy button to `apps/desktop`'s `Dashboard.tsx`,
+labeled with what's safe to share vs. never (the recovery phrase).
+
+**Verification gap, documented rather than glossed over**: could not visually confirm the new
+button in the actual running app. The dev server hangs on `invoke("keychain_get", ...)` (the
+Tauri IPC bridge to Rust's OS-keychain commands) when run as a plain browser page instead of the
+real Tauri shell — the same underlying limitation Phase 3's original verification hit (this
+environment can't screenshot the compiled Tauri binary either, since it isn't registered with
+Launch Services). Relied on the same rigor already established and accepted for this app instead:
+a real, independently-verified unit test for the actual data (not a UI mock), clean `tsc
+--noEmit` for both packages, and a careful manual review of the JSX/CSS diff against the file's
+existing patterns.
+
 ## 2026-08-07 — Fixed `chain/Dockerfile` break from the cosmos/evm vendor patch
 
 Following up on the vendored `cosmos/evm` patch (below): checked whether it broke any build path

@@ -1,3 +1,4 @@
+import { pubkeyToAddress } from "@cosmjs/amino";
 import { describe, expect, it } from "vitest";
 
 import type { Argon2idParams } from "../src/keystore.js";
@@ -41,6 +42,22 @@ describe("LcvWallet facade", () => {
     const original = await LcvWallet.create(OPTIONS);
     const keystore = await original.toKeystore("correct-password", FAST_TEST_PARAMS);
     await expect(LcvWallet.fromKeystore(keystore, "wrong-password", OPTIONS)).rejects.toThrow();
+  });
+
+  it("cosmosPubkeyJson() returns a pubkey that independently derives back to cosmosAddress()", async () => {
+    const wallet = await LcvWallet.create(OPTIONS);
+    const pubkeyJson = JSON.parse(await wallet.cosmosPubkeyJson());
+    expect(pubkeyJson["@type"]).toBe("/cosmos.crypto.secp256k1.PubKey");
+
+    // Re-derive the address from just the exported pubkey, via a completely
+    // separate code path (@cosmjs/amino) than wallet-core's own signer --
+    // proves the exported JSON is the real, correct pubkey, not just
+    // well-formed-looking output.
+    const rederivedAddress = pubkeyToAddress(
+      { type: "tendermint/PubKeySecp256k1", value: pubkeyJson.key },
+      OPTIONS.cosmosPrefix,
+    );
+    expect(rederivedAddress).toBe(await wallet.cosmosAddress());
   });
 
   it("revealMnemonic returns the exact mnemonic a wallet was created from", async () => {
