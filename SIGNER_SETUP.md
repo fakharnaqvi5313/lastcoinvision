@@ -68,6 +68,18 @@ This prints three things: an `address`, a `pubkey` (send this one back), and a m
 `xcode-select --install` first; on Linux, install `build-essential` (Debian/Ubuntu) or your
 distro's equivalent, then retry.
 
+**On Windows, this won't build or run natively — use WSL instead.** `lcvd` links CosmWasm's
+`wasmvm` library via CGO, and `wasmvm` doesn't ship a Windows build at all (checked its release
+assets directly: Linux and macOS libraries exist, no `.dll`). This isn't a gap in this project's
+build — it's an upstream limitation. Install WSL (`wsl --install` in an Administrator PowerShell,
+then restart), open the Ubuntu terminal it sets up, install prerequisites
+(`sudo apt update && sudo apt install -y build-essential git golang-go`), and follow the same
+`git clone` / `go build` / `./lcvd keys add` steps above from inside that Linux shell — everything
+works there unmodified. If Go from `apt` is older than 1.25, install the latest from
+https://go.dev/dl/ instead. (Option A, the desktop wallet app, has no such restriction — it's a
+plain Tauri + web app with no `wasmvm`/CGO dependency, so it runs natively on Windows with no WSL
+needed.)
+
 ## What happens next
 
 Once everyone's public key is collected, the multisig account gets constructed from just those

@@ -2,6 +2,27 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — `lcvd` cannot build/run natively on Windows; documented WSL as the required path
+
+A real multisig signer on Windows hit `./lcvd : The term './lcvd is not recognized`, following
+`SIGNER_SETUP.md` Option B (CLI). Investigated whether a native Windows binary was possible
+before recommending a workaround, rather than assuming.
+
+Root cause is upstream, not something in this repo to fix: `lcvd` links CosmWasm's `wasmvm`
+library via CGO, and `wasmvm` ships prebuilt native libraries only for Linux (glibc + musl,
+amd64/arm64) and macOS (amd64/arm64) — confirmed directly against `wasmvm` v3.0.7's GitHub
+release assets, no `.dll` exists at all. This is also why `.github/workflows/release.yml`'s build
+matrix only targets `ubuntu-latest`, `ubuntu-24.04-arm`, and `macos-14` — already a deliberate
+choice, not an oversight that was just never revisited.
+
+Stripping `wasmd`/CosmWasm out of `lcvd` to enable a Windows-only build would be a real
+architectural change, disproportionate to what a signer actually needs (`keys` and `tx sign`
+never touch CosmWasm). Recommended and documented WSL instead — a real Linux environment where
+the existing, already-tested Linux build path works unmodified. Added a note to
+`SIGNER_SETUP.md`'s Option B explaining this and giving WSL setup steps, and noting Option A (the
+desktop wallet app — plain Tauri + web app, no `wasmvm`/CGO dependency) has no such restriction
+and runs natively on Windows.
+
 ## 2026-08-07 — Added a "Reveal recovery phrase" option to the Dashboard (desktop + mobile)
 
 Direct follow-up to the create-wallet race-condition fix below: anyone who created a wallet
