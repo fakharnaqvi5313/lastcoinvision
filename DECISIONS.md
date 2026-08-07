@@ -2,6 +2,60 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Vendor-patched cosmos/evm for a Critical, unfixed-upstream precompile bug (GHSA-mjfq-3qr2-6g84)
+
+User asked to bump `cosmos/evm` and test the fix for Finding #6 (`GO-2025-3684`, previously logged
+as "High, not resolved, flagged as priority" in the entry below). Checking turned up something more
+serious than expected, so this became a stop-and-report, then a real patch, not a quiet version bump.
+
+**What checking the actual GHSA advisory (not just govulncheck's one-line summary) revealed**:
+severity is **Critical**, not High — a low EVM call-gas limit lets a caller partially execute a
+precompile and error out mid-way without the partial writes reverting; the advisory's own example is
+claiming staking rewards without the claimable balance resetting to 0, i.e. a real fund-duplication
+path. Confirmed LCV's `DefaultStaticPrecompiles()` registers `WithDistributionPrecompile(...)` —
+exactly the advisory's example — and it's active at genesis (`evmGenesisState()`), not dormant.
+
+**Checked every available version for a fix, found none.** The advisory names a specific fix commit;
+GitHub's compare API showed it as an ancestor of `v0.6.1` (0 commits ahead), which initially looked
+like the fix already shipped — that turned out to be a false lead. Reading the actual code:
+`precompiles/common/precompile.go`'s `HandleGasError` is byte-for-byte identical across `v0.6.1`
+(pinned), `v0.7.1`, and `v1.0.0-rc2` (newest available) — none of them call any revert function on
+the out-of-gas panic path. `govulncheck`'s "Fixed in: N/A" is accurate, not stale.
+
+**Stopped and asked the user how to proceed** rather than picking one of three real options
+(vendor a local patch / disable the precompile / accept the risk as testnet-only) unilaterally,
+given the severity and that a botched patch to consensus-critical EVM execution code is its own
+risk. User chose to vendor a local patch.
+
+**Traced the exact mechanism before writing anything.** `runNativeAction`
+(`precompiles/common/precompile.go`) is the shared entry point every stateful precompile's `Run()`
+funnels through (confirmed via `precompiles/distribution/distribution.go:97-98`). It takes a
+multi-store snapshot before the precompile's action runs (`stateDB.MultiStoreSnapshot()`), but never
+calls `stateDB.RevertMultiStore(snapshot)` on any error or panic-recovery exit — the existing
+`RevertMultiStore` machinery was wired only into the journal-based revert path used when the *outer*
+EVM call reverts, not per-call. This is a cleaner, more complete fix point than the GHSA's own
+file-specific diff (which targets `HandleGasError`'s signature and a different `StateDB.
+RevertMultiStore` signature than what's actually in this codebase — the advisory's patch appears to
+have been written against a different/older code layout).
+
+**The fix**: vendored `cosmos/evm@v0.6.1` into `chain/third_party/cosmos-evm-patched` (a `go.mod`
+local `replace`, same pattern as the existing go-ethereum fork already in this file), with a single
+4-line addition to `runNativeAction` — a `defer` that reverts the snapshot whenever the function
+returns a non-nil error, covering every exit path (the normal error return, `HandleGasError`'s
+panic recovery, `AddPrecompileFn` failures) in one place rather than patching each individually.
+
+**Verification**: LCV's full test suite (19/19 packages) and the vendored package's own existing
+test suite (`go test -tags=test ./precompiles/common/...`, needed a build tag this repo doesn't use
+elsewhere) both pass against the patched dependency. Restarted the local devnet to rebuild against
+it, and made a real `cast call` to the Distribution precompile's `communityPool()` through the live
+JSON-RPC — correctly decoded output, proving the patched code path executes end-to-end. **Did not**
+achieve a live reproduction of the actual pre-patch exploit (a gas-limited call landing exactly
+mid-write) — that needs precise calibration against the SDK's internal KV-store gas accounting that
+wasn't reliably achievable in scope. The fix is verified by direct code tracing (which is thorough:
+every version checked, the exact vulnerable line identified, the exact call path confirmed) and
+regression testing, not by demonstrating the bug live first. Documented plainly as such in
+`AUDIT_FINDINGS_RESPONSE.md` rather than implying more than what was actually proven.
+
 ## 2026-08-07 — Resolved AftPak's initial report: gosec confirmed noise, 12/19 govulncheck CVEs fixed by a Go bump, 7 triaged
 
 User asked to resolve everything AftPak's initial report identified. That report's two

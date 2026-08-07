@@ -3,6 +3,14 @@ module github.com/lastcoinvision/lcv
 go 1.25.12
 
 replace (
+	// LOCAL PATCH for GHSA-mjfq-3qr2-6g84 (GO-2025-3684, "Partial Precompile
+	// State Writes", severity Critical): no released cosmos/evm version
+	// (checked v0.6.1 through v1.0.0-rc2) fixes this. Vendored copy of
+	// v0.6.1 with a single, minimal fix in precompiles/common/precompile.go's
+	// runNativeAction -- see the LCV PATCH comment there, and
+	// AUDIT_FINDINGS_RESPONSE.md Finding #6 / DECISIONS.md 2026-08-07 for the
+	// full trace of why upstream has no fix and what this patch does.
+	github.com/cosmos/evm => ./third_party/cosmos-evm-patched
 	// cosmos/evm requires this fork (adds state-access hooks go-ethereum
 	// doesn't expose upstream); every chain using cosmos/evm needs the same
 	// replace in its own go.mod since Go ignores replace directives from
