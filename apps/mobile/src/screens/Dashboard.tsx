@@ -25,6 +25,17 @@ export default function Dashboard() {
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  const [pubkeyJson, setPubkeyJson] = useState<string | null>(null);
+
+  async function togglePubkey() {
+    if (!wallet) return;
+    if (pubkeyJson) {
+      setPubkeyJson(null);
+      return;
+    }
+    setPubkeyJson(await wallet.cosmosPubkeyJson());
+  }
+
   const refreshBalances = useCallback(async () => {
     if (!wallet || !cosmosAddress) return;
     setBalanceError(null);
@@ -137,6 +148,22 @@ export default function Dashboard() {
           <Text style={styles.addressValue}>{cosmosAddress}</Text>
           <Text style={styles.muted}>{cosmosBalance !== null ? `${cosmosBalance} ulcv` : "—"}</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.linkButton} onPress={() => void togglePubkey()}>
+          <Text style={styles.linkButtonText}>{pubkeyJson ? "Hide public key" : "Show public key"}</Text>
+        </TouchableOpacity>
+        {pubkeyJson && (
+          <>
+            <Text style={styles.muted}>
+              Safe to share — e.g. with whoever is constructing a multisig you're one signer of. Never share your
+              recovery phrase.
+            </Text>
+            <TouchableOpacity style={styles.pubkeyBox} onPress={() => Clipboard.setStringAsync(pubkeyJson)}>
+              <Text style={styles.pubkeyText}>{pubkeyJson}</Text>
+              <Text style={[styles.linkButtonText, { marginTop: 6 }]}>Tap to copy</Text>
+            </TouchableOpacity>
+          </>
+        )}
         <TouchableOpacity style={styles.addressRow} onPress={() => Clipboard.setStringAsync(wallet.evmAddress)}>
           <Text style={styles.addressLabel}>EVM address (tap to copy)</Text>
           <Text style={styles.addressValue}>{wallet.evmAddress}</Text>

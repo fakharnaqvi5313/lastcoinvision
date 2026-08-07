@@ -130,6 +130,26 @@ export const styles = StyleSheet.create({
     color: navy[300],
     fontSize: 13,
   },
+  linkButton: {
+    marginTop: 4,
+  },
+  linkButtonText: {
+    color: accent[500],
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  pubkeyBox: {
+    backgroundColor: navy[900],
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  pubkeyText: {
+    fontFamily: "monospace",
+    fontSize: 11,
+    color: navy[50],
+  },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
