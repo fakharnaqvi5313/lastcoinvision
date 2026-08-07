@@ -2,6 +2,39 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Trimmed `chain/third_party/cosmos-evm-patched`: 465 Dependabot alerts were vendoring noise, not real risk
+
+Pushing the Dependabot-triage commit (below) surfaced something much bigger than the 7 alerts it
+was written to address: `git push` reported **465 vulnerabilities (26 critical, 201 high)** on
+the repo's default branch — a 66x jump from the 7 already triaged. Investigated rather than
+assumed benign, given the scale.
+
+Cause: the original vendor pass (same-day, earlier entry) copied the *entire* upstream
+`cosmos/evm@v0.6.1` repo — 1,235 files — to satisfy `go.mod`'s local `replace`. That included the
+upstream repo's own `tests/` integration-test suite and more than a dozen scattered
+`package.json`/`package-lock.json` files for that suite's JS tooling (hardhat, viem, web3.js).
+GitHub's dependency graph scans every manifest file it finds in a repo, independent of Go module
+boundaries — unlike `gosec`/`go list`, which correctly stop at the nested `go.mod` (confirmed
+same-day). None of that JS tooling, or the `tests/` Go files, are part of `lcvd`'s actual build;
+GitHub was scanning them anyway and flagging their old, frozen, unrelated dependency trees as if
+they were LCV's own risk.
+
+**Verified empirically before deleting anything** (this is a security-critical vendor directory —
+guessing wasn't good enough): temporarily moved `tests/` aside and ran a real `go build
+./cmd/lcvd` to confirm it wasn't needed, before removing it for real. Same pattern for the JS
+manifest files (Go never reads `package.json`). Removed `tests/`, every `package.json`/
+`package-lock.json`/`yarn.lock` found anywhere in the tree, and the upstream repo's own CI/lint/
+tooling configs (`.github/`, `docs/`, `Makefile`, `docker-compose.yml`, `shell.nix`, and a dozen
+more) that serve upstream's own development process, not LCV's build. 18MB → 11MB, 1,235 files →
+865. **Final verification, not skipped**: full rebuild of both binaries, then LCV's complete test
+suite (19/19 packages, same as every other check this session) — all green after the trim.
+
+Kept everything actually needed: every `.go` file reachable from `lcvd`'s import graph,
+`go.mod`/`go.sum` (genuinely required for the `replace` to resolve — these still carry real,
+legitimate transitive dependencies, already accounted for in the 7 originally-triaged alerts),
+`LICENSE`, `README.md`. Updated `chain/third_party/README.md` with the same reasoning so a future
+re-vendor doesn't repeat the mistake.
+
 ## 2026-08-07 — Pushed 22 commits to origin/main; triaged 7 new Dependabot alerts it surfaced
 
 Pushed the full day's local work (the wallet build, all six mainnet-gate preparation docs, the
