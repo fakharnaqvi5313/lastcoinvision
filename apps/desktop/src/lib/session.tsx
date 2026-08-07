@@ -25,6 +25,7 @@ interface SessionState {
   activateWallet(w: LcvWallet): Promise<void>;
   importWallet(mnemonic: string, password: string, cosmosPrefix: string): Promise<void>;
   unlock(password: string, cosmosPrefix: string): Promise<void>;
+  revealMnemonicWithPassword(password: string, cosmosPrefix: string): Promise<string>;
   lock(): void;
   forgetWallet(): Promise<void>;
   connectTxClients(network: NetworkConfig): Promise<void>;
@@ -106,6 +107,19 @@ export function SessionProvider({
     [applyWallet],
   );
 
+  const revealMnemonicWithPassword = useCallback(async (password: string, cosmosPrefix: string) => {
+    const raw = await loadEncryptedKeystore();
+    if (!raw) throw new Error("No stored wallet on this device");
+    const keystore = JSON.parse(raw);
+    // Re-derives from the stored keystore with the just-entered password,
+    // deliberately not trusting that the session is already unlocked --
+    // this is the one re-authentication checkpoint before showing the
+    // mnemonic again, so a walked-away unlocked device can't be used to
+    // pull it up with no further proof of the password.
+    const w = await LcvWallet.fromKeystore(keystore, password, { cosmosPrefix }); // throws on wrong password
+    return w.revealMnemonic();
+  }, []);
+
   const lock = useCallback(() => {
     setWallet(null);
     setTxClients(null);
@@ -147,6 +161,7 @@ export function SessionProvider({
       activateWallet,
       importWallet,
       unlock,
+      revealMnemonicWithPassword,
       lock,
       forgetWallet,
       connectTxClients,
@@ -163,6 +178,7 @@ export function SessionProvider({
       activateWallet,
       importWallet,
       unlock,
+      revealMnemonicWithPassword,
       lock,
       forgetWallet,
       connectTxClients,

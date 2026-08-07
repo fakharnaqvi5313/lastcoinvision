@@ -13,7 +13,7 @@ import { styles } from "../lib/theme";
 type Tab = "cosmos" | "evm";
 
 export default function Dashboard() {
-  const { wallet, cosmosAddress, network, setNetwork, lock } = useSession();
+  const { wallet, cosmosAddress, network, setNetwork, lock, revealMnemonicWithPassword } = useSession();
   const [tab, setTab] = useState<Tab>("cosmos");
   const [cosmosBalance, setCosmosBalance] = useState<string | null>(null);
   const [evmBalance, setEvmBalance] = useState<string | null>(null);
@@ -26,6 +26,33 @@ export default function Dashboard() {
   const [sendError, setSendError] = useState<string | null>(null);
 
   const [pubkeyJson, setPubkeyJson] = useState<string | null>(null);
+
+  const [showRevealForm, setShowRevealForm] = useState(false);
+  const [revealPassword, setRevealPassword] = useState("");
+  const [revealedMnemonic, setRevealedMnemonic] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealBusy, setRevealBusy] = useState(false);
+
+  async function handleReveal() {
+    setRevealError(null);
+    setRevealBusy(true);
+    try {
+      const mnemonic = await revealMnemonicWithPassword(revealPassword, network.cosmosPrefix);
+      setRevealedMnemonic(mnemonic);
+    } catch {
+      setRevealError("Wrong password.");
+    } finally {
+      setRevealBusy(false);
+      setRevealPassword("");
+    }
+  }
+
+  function hideMnemonic() {
+    setRevealedMnemonic(null);
+    setShowRevealForm(false);
+    setRevealPassword("");
+    setRevealError(null);
+  }
 
   async function togglePubkey() {
     if (!wallet) return;
@@ -176,6 +203,52 @@ export default function Dashboard() {
           </Text>
         </TouchableOpacity>
         {balanceError && <Text style={styles.error}>{balanceError}</Text>}
+
+        {!showRevealForm && !revealedMnemonic && (
+          <TouchableOpacity style={styles.linkButton} onPress={() => setShowRevealForm(true)}>
+            <Text style={styles.linkButtonText}>Reveal recovery phrase</Text>
+          </TouchableOpacity>
+        )}
+        {showRevealForm && !revealedMnemonic && (
+          <View>
+            <Text style={styles.body}>Re-enter your password to view your recovery phrase.</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              autoFocus
+              value={revealPassword}
+              onChangeText={setRevealPassword}
+            />
+            {revealError && <Text style={styles.error}>{revealError}</Text>}
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.primaryButton, (revealBusy || !revealPassword) && styles.primaryButtonDisabled]}
+                disabled={revealBusy || !revealPassword}
+                onPress={handleReveal}
+              >
+                <Text style={styles.primaryButtonText}>{revealBusy ? "Checking…" : "Reveal"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={hideMnemonic}>
+                <Text style={styles.secondaryButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {revealedMnemonic && (
+          <View>
+            <Text style={styles.warning}>
+              Anyone with this phrase can control your wallet. Make sure no one else can see your screen.
+            </Text>
+            <View style={styles.mnemonicBox}>
+              <Text style={styles.mnemonicText}>{revealedMnemonic}</Text>
+            </View>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={hideMnemonic}>
+                <Text style={styles.secondaryButtonText}>Hide</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <View style={styles.tabs}>
           <TouchableOpacity

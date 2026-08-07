@@ -10,7 +10,7 @@ import { useSession } from "../lib/session.js";
 type Tab = "cosmos" | "evm";
 
 export default function Dashboard() {
-  const { wallet, cosmosAddress, network, setNetwork, lock } = useSession();
+  const { wallet, cosmosAddress, network, setNetwork, lock, revealMnemonicWithPassword } = useSession();
   const [tab, setTab] = useState<Tab>("cosmos");
   const [cosmosBalance, setCosmosBalance] = useState<string | null>(null);
   const [evmBalance, setEvmBalance] = useState<string | null>(null);
@@ -24,6 +24,33 @@ export default function Dashboard() {
 
   const [pubkeyJson, setPubkeyJson] = useState<string | null>(null);
   const [pubkeyCopied, setPubkeyCopied] = useState(false);
+
+  const [showRevealForm, setShowRevealForm] = useState(false);
+  const [revealPassword, setRevealPassword] = useState("");
+  const [revealedMnemonic, setRevealedMnemonic] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealBusy, setRevealBusy] = useState(false);
+
+  async function handleReveal() {
+    setRevealError(null);
+    setRevealBusy(true);
+    try {
+      const mnemonic = await revealMnemonicWithPassword(revealPassword, network.cosmosPrefix);
+      setRevealedMnemonic(mnemonic);
+    } catch {
+      setRevealError("Wrong password.");
+    } finally {
+      setRevealBusy(false);
+      setRevealPassword("");
+    }
+  }
+
+  function hideMnemonic() {
+    setRevealedMnemonic(null);
+    setShowRevealForm(false);
+    setRevealPassword("");
+    setRevealError(null);
+  }
 
   async function togglePubkey() {
     if (!wallet) return;
@@ -179,6 +206,50 @@ export default function Dashboard() {
           </span>
         </div>
         {balanceError && <p className="error">{balanceError}</p>}
+
+        <div className="field" style={{ marginTop: "0.5rem" }}>
+          {!showRevealForm && !revealedMnemonic && (
+            <button className="link-btn" onClick={() => setShowRevealForm(true)}>
+              Reveal recovery phrase
+            </button>
+          )}
+          {showRevealForm && !revealedMnemonic && (
+            <div>
+              <p className="muted">Re-enter your password to view your recovery phrase.</p>
+              <input
+                type="password"
+                autoFocus
+                value={revealPassword}
+                onChange={(e) => setRevealPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleReveal();
+                }}
+              />
+              {revealError && <p className="error">{revealError}</p>}
+              <div className="btn-row">
+                <button className="btn-primary" onClick={handleReveal} disabled={revealBusy || !revealPassword}>
+                  {revealBusy ? "Checking…" : "Reveal"}
+                </button>
+                <button className="btn-secondary" onClick={hideMnemonic}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {revealedMnemonic && (
+            <div>
+              <p className="warning">
+                Anyone with this phrase can control your wallet. Make sure no one else can see your screen.
+              </p>
+              <div className="mnemonic-box">{revealedMnemonic}</div>
+              <div className="btn-row">
+                <button className="btn-secondary" onClick={hideMnemonic}>
+                  Hide
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="tabs">
           <button className={tab === "cosmos" ? "active" : ""} onClick={() => setTab("cosmos")}>

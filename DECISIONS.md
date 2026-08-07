@@ -2,6 +2,30 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Added a "Reveal recovery phrase" option to the Dashboard (desktop + mobile)
+
+Direct follow-up to the create-wallet race-condition fix below: anyone who created a wallet
+through the broken build had no way to see or back up their mnemonic, and no way to retroactively
+recover it — `revealMnemonic()` only ever ran once, immediately after creation, and was
+discarded.
+
+This works because `LcvWallet.fromKeystore()` decrypts the keystore back into a full mnemonic
+before deriving signers (`packages/wallet-core/src/wallet.ts`) — an unlocked wallet already
+created from a stored keystore has the same mnemonic in memory as a freshly-created one;
+`revealMnemonic()` was never limited to the creation path, just never exposed anywhere else.
+
+Added `revealMnemonicWithPassword(password, cosmosPrefix)` to both apps' `session.tsx`. It does
+**not** just call `wallet.revealMnemonic()` on the already-unlocked in-memory wallet — it
+re-loads the stored encrypted keystore and re-derives from it with the password the user just
+typed, so a device that's unlocked and walked away from still requires proof of the password
+before showing the phrase again. Wired into a new collapsed-by-default section on both
+`Dashboard`s: a "Reveal recovery phrase" link opens a password prompt, and only a correct
+password shows the mnemonic (with the same warning copy as the create-wallet backup screen and a
+"Hide" control to clear it from state).
+
+**Verified**: clean full production build of `apps/desktop` (`tsc --noEmit && vite build`, 1,057
+modules) and clean `tsc --noEmit` on `apps/mobile`.
+
 ## 2026-08-07 — Fixed a real bug: the create-wallet flow never showed the recovery phrase (desktop + mobile)
 
 A real signer setting up for the treasury multisig reported "in wallet I didn't see the recovery
