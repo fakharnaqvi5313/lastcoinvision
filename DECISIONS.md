@@ -2,6 +2,68 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Resolved AftPak's initial report: gosec confirmed noise, 12/19 govulncheck CVEs fixed by a Go bump, 7 triaged
+
+User asked to resolve everything AftPak's initial report identified. That report's two
+categories (per the 2026-08-06 verification entry) are `gosec` (1,040 findings) and
+`govulncheck` (19 vulnerabilities) — ran `AUDIT_FINDINGS_RESPONSE.md`'s own triage process
+(reproduce independently first, then classify and resolve) against both, logged as Findings #1-7
+in that document.
+
+**gosec (Finding #1): confirmed 100% false-positive, no code change needed.** Reproduced fresh
+(1,040 issues, exactly matching AftPak's count) and checked every single one's file path — all
+1,036 `G115`s and all 4 `G101`s are in generated `.pb.go`/`.pulsar.go`/`_grpc.pb.go` files, zero
+in hand-written code. The `G101`s are gRPC method-path strings like
+`"/lcv.identity.Msg/RevokeCredential"` tripping a "hardcoded credential" heuristic on the word
+"Credential." Exactly matches `AUDIT_SCOPE.md`'s existing documented explanation.
+
+**govulncheck (Finding #2): 12 of 19 fixed with a one-line change.** All 12 Go-stdlib CVEs
+(`crypto/tls`, `net/textproto`, `crypto/x509`, `html/template`, `net`, `net/http`,
+`archive/tar`) had a published fixed Go patch version, and the highest one needed (`go1.25.12`)
+was already cached locally from an earlier build. Bumped `chain/go.mod`'s `go` directive from
+`1.25.8` to `1.25.12`, rebuilt (confirmed via `go version -m` on the binary), ran the full test
+suite (19/19 packages green), and re-ran `govulncheck`: 19 → 7, exactly the 12 stdlib CVEs gone.
+
+**Also bumped `cosmos-sdk` v0.53.6 → v0.53.8** (latest available 0.53.x patch) specifically to
+check whether it closed any of the three `cosmos-sdk`-authored advisories among the remaining 7
+— it didn't (confirmed via a second `govulncheck` re-run against the fully-updated state), but
+kept the bump anyway since it's a safe, tested improvement (full suite still green) that likely
+carries other undocumented fixes. Cometbft came along transitively (v0.38.21 → v0.38.23).
+
+**Findings #3-7 (the remaining 7, none with an available fix): individually triaged, not
+blanket-accepted.** Full reasoning and evidence in `AUDIT_FINDINGS_RESPONSE.md`'s Findings Log;
+summary:
+- `GO-2026-5932` (x/crypto openpgp, unmaintained-by-design) — Low, risk-accepted: reachable only
+  through `cosmos-sdk`'s keyring PGP-armor export CLI, an operator convenience feature, not
+  network- or consensus-facing.
+- `GO-2026-4740` (shamaton/msgpack DoS, via wasmd) — Low-Medium, risk-accepted but flagged for
+  re-check: already at the latest available version; traces show only init-time codec
+  registration, not a demonstrated runtime decode of untrusted input, but that wasn't dug into
+  deeply enough to call fully unreachable with confidence.
+- `GO-2026-4479` (pion/dtls nonce reuse) — Low, risk-accepted: checked newer available `pion/dtls`
+  versions (v2.2.8-v2.2.12), still no fix per `govulncheck`'s own database; traces are
+  init-time-only, and `lcvd` doesn't run a DTLS/WebRTC handshake in normal operation.
+- **`GO-2025-3684` (cosmos/evm "Partial Precompile State Writes") — High, deliberately left
+  open, not risk-accepted.** This is the one real exception to "nothing else fixable this
+  session": a *direct*, actively-used dependency — confirmed `app.go` registers
+  `DefaultStaticPrecompiles` and enables `ActiveStaticPrecompiles`, so the precompile system this
+  advisory concerns is live, not dormant. Newer `cosmos/evm` releases exist (up to
+  `v1.0.0-rc2`) but `govulncheck` doesn't identify a specific fixed version, and a `v0.6.1` →
+  `v0.7.x`/`v1.0.0-rc` jump is a major-version bump with likely breaking changes — properly
+  fixing this needs a real, separately-scoped upgrade-and-test pass, not something to jam into
+  this session. Logged as the single most important open item from this whole exercise.
+- `GO-2024-2584`/`GO-2023-1881`/`GO-2023-1821` (cosmos-sdk's own slashing/x-crisis advisories) —
+  Medium, risk-accepted: confirmed `x/crisis` is actually wired into `app.go` (not dormant, so
+  these are real), confirmed no available `cosmos-sdk` version fixes them (checked at the newly-
+  bumped v0.53.8), and these are long-standing, narrow-scope legacy-module advisories every
+  current `cosmos-sdk` v0.53.x chain shares — not something forking/patching `cosmos-sdk` itself
+  would be proportionate to attempt here.
+
+**What this doesn't do**: close the mainnet audit gate. AftPak's initial report was always
+automated-tooling output, not a manual audit findings list — resolving it is real, useful
+hygiene (and directly answers the user's request), but `MAINNET_LAUNCH_RUNBOOK.md`'s audit gate
+still requires the engagement's still-pending fuller report with actual manual findings.
+
 ## 2026-08-07 — Drafted the three remaining pure-documentation mainnet gates: bug bounty, legal scope, multisig ceremony
 
 User said to keep working. Of `MAINNET_LAUNCH_RUNBOOK.md`'s six hard gates, three had already
