@@ -2,6 +2,26 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Pushed 22 commits to origin/main; triaged 7 new Dependabot alerts it surfaced
+
+Pushed the full day's local work (the wallet build, all six mainnet-gate preparation docs, the
+Critical `cosmos/evm` vendor patch, the `Dockerfile` fix, both wallet apps' public-key export
+feature) to `origin/main` — 22 commits that had only existed on this machine until now. GitHub
+immediately flagged 7 new Dependabot alerts on push.
+
+All 7 are on `chain/go.mod` — none from the vendored `third_party/cosmos-evm-patched/` directory
+itself (confirmed earlier the same day that directory's own `go.mod` boundary keeps it out of
+the root module's scans entirely). One (`pion/dtls/v2`) is already Finding #5, already risk-
+accepted. The other six (four `docker/docker` alerts, one `pion/stun/v2`) are new — logged as
+Finding #8 in `AUDIT_FINDINGS_RESPONSE.md`, both risk-accepted with real evidence: `docker/docker`
+isn't needed by the main module at all per `go mod why` (a pure `go.sum` bookkeeping artifact,
+never compiled in — stronger evidence than the usual "compiled but unreachable" argument);
+`pion/stun/v2` does compile in (via `cosmos/evm`'s dependency on `go-ethereum`'s own unused
+P2P/NAT-traversal subsystem) but a fresh `govulncheck` run confirms it isn't among the binary's
+actually-reachable vulnerabilities — `lcvd` uses CometBFT's P2P layer, not go-ethereum's standalone
+one. Both are transitive artifacts of `cosmos-evm-patched`'s own dependency graph, surfaced by
+vendoring it, not something LCV's own code introduced a real path to.
+
 ## 2026-08-07 — Mirrored the "Show public key" feature in `apps/mobile`
 
 Same real gap as the desktop addition applies to mobile: a multisig signer may only have their
