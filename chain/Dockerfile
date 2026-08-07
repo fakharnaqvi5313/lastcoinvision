@@ -4,6 +4,12 @@
 FROM golang:1.25-bookworm AS build
 WORKDIR /src
 COPY go.mod go.sum ./
+# third_party/ has to be present before `go mod download`: go.mod's
+# replace for github.com/cosmos/evm points at a local path
+# (./third_party/cosmos-evm-patched, see that directory's own README and
+# DECISIONS.md 2026-08-07), not a real module registry entry, so the
+# module graph can't resolve without it on disk yet.
+COPY third_party/ ./third_party/
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=1 go build -trimpath -o /out/lcvd ./cmd/lcvd

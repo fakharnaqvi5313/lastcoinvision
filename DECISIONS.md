@@ -2,6 +2,32 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Fixed `chain/Dockerfile` break from the cosmos/evm vendor patch
+
+Following up on the vendored `cosmos/evm` patch (below): checked whether it broke any build path
+besides my own local `go build`, since a `replace` pointing at a local filesystem path is a real
+change to how the module graph resolves, not just an add. It did: `chain/Dockerfile`'s layer-
+caching pattern (`COPY go.mod go.sum` → `go mod download` → `COPY . .`, ordered that way so the
+dependency-download layer stays cached across source-only changes) broke, because `go mod
+download` now needs `./third_party/cosmos-evm-patched` on disk to resolve the replace, and that
+directory wasn't copied into the build context yet at that step. Confirmed via an actual
+`docker build` — real failure, not a hypothetical: `reading third_party/cosmos-evm-patched/go.mod:
+open /src/third_party/cosmos-evm-patched/go.mod: no such file or directory`.
+
+**Fixed** by adding `COPY third_party/ ./third_party/` alongside the `go.mod`/`go.sum` copy,
+before `go mod download` — preserves the layer-caching intent (the deps layer only invalidates if
+`go.mod`/`go.sum`/`third_party/` actually change) while fixing the resolution. Rebuilt the image
+and confirmed it succeeds, then ran the built binary (`lcvd version`, `lcvd --help`) to confirm
+it's actually functional, not just compiling.
+
+**Checked every other place `lcvd` gets built, to make sure this was the only break**:
+`.github/workflows/release.yml` and `ci.yml` both do a full `actions/checkout@v4` before any Go
+command runs (no premature `go mod download` step), so the whole repo — `third_party/` included —
+is already present; unaffected. `deploy/docker-compose/docker-compose.yml` builds via
+`context: ../../chain, dockerfile: Dockerfile` — the exact same Dockerfile just fixed, no separate
+build logic to duplicate the fix into. `deploy/k8s/` references a pre-built image, doesn't build
+independently. One fix, one file, covers every build path.
+
 ## 2026-08-07 — Vendor-patched cosmos/evm for a Critical, unfixed-upstream precompile bug (GHSA-mjfq-3qr2-6g84)
 
 User asked to bump `cosmos/evm` and test the fix for Finding #6 (`GO-2025-3684`, previously logged
