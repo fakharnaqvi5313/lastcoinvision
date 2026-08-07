@@ -20,7 +20,8 @@ interface SessionState {
   readonly cosmosAddress: string | null;
   readonly network: NetworkConfig;
   refreshHasStoredKeystore(): Promise<void>;
-  createWallet(password: string, cosmosPrefix: string): Promise<{ mnemonic: string }>;
+  createWallet(password: string, cosmosPrefix: string): Promise<{ wallet: LcvWallet; mnemonic: string }>;
+  activateWallet(w: LcvWallet): Promise<void>;
   importWallet(mnemonic: string, password: string, cosmosPrefix: string): Promise<void>;
   unlock(password: string, cosmosPrefix: string): Promise<void>;
   lock(): void;
@@ -61,14 +62,22 @@ export function SessionProvider({
     setTxClients(null); // require an explicit connect once the caller knows which network
   }, []);
 
-  const createWallet = useCallback(
-    async (password: string, cosmosPrefix: string) => {
-      const w = await LcvWallet.create({ cosmosPrefix });
-      const keystore = await w.toKeystore(password);
-      await saveEncryptedKeystore(JSON.stringify(keystore));
+  const createWallet = useCallback(async (password: string, cosmosPrefix: string) => {
+    const w = await LcvWallet.create({ cosmosPrefix });
+    const keystore = await w.toKeystore(password);
+    await saveEncryptedKeystore(JSON.stringify(keystore));
+    setHasStoredKeystore(true);
+    // Deliberately does NOT call applyWallet()/setWallet() here -- see
+    // apps/desktop/src/lib/session.tsx for why (Router treats a non-null
+    // `wallet` as "show the dashboard," which would unmount the mnemonic
+    // backup screen before it ever renders). CreateWallet must show this
+    // mnemonic once for backup, then call activateWallet() once confirmed.
+    return { wallet: w, mnemonic: w.revealMnemonic() };
+  }, []);
+
+  const activateWallet = useCallback(
+    async (w: LcvWallet) => {
       await applyWallet(w);
-      setHasStoredKeystore(true);
-      return { mnemonic: w.revealMnemonic() };
     },
     [applyWallet],
   );
@@ -133,6 +142,7 @@ export function SessionProvider({
       network,
       refreshHasStoredKeystore,
       createWallet,
+      activateWallet,
       importWallet,
       unlock,
       lock,
@@ -148,6 +158,7 @@ export function SessionProvider({
       network,
       refreshHasStoredKeystore,
       createWallet,
+      activateWallet,
       importWallet,
       unlock,
       lock,

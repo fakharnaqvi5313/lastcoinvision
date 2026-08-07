@@ -21,7 +21,8 @@ interface SessionState {
   readonly cosmosAddress: string | null;
   readonly network: NetworkConfig;
   refreshHasStoredKeystore(): Promise<void>;
-  createWallet(password: string, cosmosPrefix: string): Promise<{ mnemonic: string }>;
+  createWallet(password: string, cosmosPrefix: string): Promise<{ wallet: LcvWallet; mnemonic: string }>;
+  activateWallet(w: LcvWallet): Promise<void>;
   importWallet(mnemonic: string, password: string, cosmosPrefix: string): Promise<void>;
   unlock(password: string, cosmosPrefix: string): Promise<void>;
   lock(): void;
@@ -62,17 +63,23 @@ export function SessionProvider({
     setTxClients(null); // require an explicit connect once the caller knows which network
   }, []);
 
-  const createWallet = useCallback(
-    async (password: string, cosmosPrefix: string) => {
-      const w = await LcvWallet.create({ cosmosPrefix });
-      const keystore = await w.toKeystore(password);
-      await saveEncryptedKeystore(JSON.stringify(keystore));
+  const createWallet = useCallback(async (password: string, cosmosPrefix: string) => {
+    const w = await LcvWallet.create({ cosmosPrefix });
+    const keystore = await w.toKeystore(password);
+    await saveEncryptedKeystore(JSON.stringify(keystore));
+    setHasStoredKeystore(true);
+    // Deliberately does NOT call applyWallet()/setWallet() here. Router
+    // treats a non-null `wallet` as "show the dashboard," so activating the
+    // session before the caller has shown+confirmed the mnemonic backup
+    // screen would unmount that screen before it ever renders. The caller
+    // (CreateWallet) must show this mnemonic once for backup, then call
+    // activateWallet() only once the user has confirmed the backup.
+    return { wallet: w, mnemonic: w.revealMnemonic() };
+  }, []);
+
+  const activateWallet = useCallback(
+    async (w: LcvWallet) => {
       await applyWallet(w);
-      setHasStoredKeystore(true);
-      // The caller (CreateWallet screen) is responsible for showing this
-      // mnemonic to the user ONCE for backup, then discarding it -- this
-      // function never stores it anywhere itself.
-      return { mnemonic: w.revealMnemonic() };
     },
     [applyWallet],
   );
@@ -137,6 +144,7 @@ export function SessionProvider({
       network,
       refreshHasStoredKeystore,
       createWallet,
+      activateWallet,
       importWallet,
       unlock,
       lock,
@@ -152,6 +160,7 @@ export function SessionProvider({
       network,
       refreshHasStoredKeystore,
       createWallet,
+      activateWallet,
       importWallet,
       unlock,
       lock,

@@ -1,3 +1,4 @@
+import type { LcvWallet } from "@lastcoinvision/wallet-core";
 import { useState } from "react";
 
 import { useSession } from "../lib/session.js";
@@ -5,10 +6,11 @@ import { useSession } from "../lib/session.js";
 type Step = "password" | "backup";
 
 export default function CreateWallet({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
-  const { createWallet, network } = useSession();
+  const { createWallet, activateWallet, network } = useSession();
   const [step, setStep] = useState<Step>("password");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [pendingWallet, setPendingWallet] = useState<LcvWallet | null>(null);
   const [mnemonic, setMnemonic] = useState<string | null>(null);
   const [backedUp, setBackedUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,8 @@ export default function CreateWallet({ onDone, onBack }: { onDone: () => void; o
     }
     setBusy(true);
     try {
-      const { mnemonic: newMnemonic } = await createWallet(password, network.cosmosPrefix);
+      const { wallet, mnemonic: newMnemonic } = await createWallet(password, network.cosmosPrefix);
+      setPendingWallet(wallet);
       setMnemonic(newMnemonic);
       setStep("backup");
     } catch (err) {
@@ -34,6 +37,12 @@ export default function CreateWallet({ onDone, onBack }: { onDone: () => void; o
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleContinue() {
+    if (!pendingWallet) return;
+    await activateWallet(pendingWallet);
+    onDone();
   }
 
   if (step === "backup" && mnemonic) {
@@ -53,7 +62,7 @@ export default function CreateWallet({ onDone, onBack }: { onDone: () => void; o
           </label>
         </div>
         <div className="btn-row">
-          <button className="btn-primary" disabled={!backedUp} onClick={onDone}>
+          <button className="btn-primary" disabled={!backedUp} onClick={handleContinue}>
             Continue to wallet
           </button>
         </div>

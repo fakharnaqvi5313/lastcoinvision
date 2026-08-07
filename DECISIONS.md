@@ -2,6 +2,46 @@
 
 Log of deviations from the original spec, forced by dependency/version realities, with reasoning. Newest first.
 
+## 2026-08-07 — Fixed a real bug: the create-wallet flow never showed the recovery phrase (desktop + mobile)
+
+A real signer setting up for the treasury multisig reported "in wallet I didn't see the recovery
+phrase option" after clicking Create new wallet. Traced it to a genuine race condition, not a
+missing UI element — the backup screen's code was correct but structurally unreachable.
+
+**Root cause**: `session.tsx`'s `createWallet()` called `applyWallet(w)` (which sets the
+session's global `wallet` state) *before* returning the mnemonic to its caller
+(`CreateWallet.tsx`). Meanwhile `App.tsx`'s `Router` component has `if (wallet) return
+<Dashboard/>` ahead of its own screen-state switch, with no dependency on what screen the app
+thinks it's on. The instant `wallet` became non-null — which happened *inside* `createWallet()`,
+before `CreateWallet.tsx`'s own `handleCreate()` even got control back — `Router` re-rendered to
+`<Dashboard/>` and unmounted `<CreateWallet/>`. Its "backup" step (`setStep("backup")`) never got
+a chance to run, so the mnemonic-display screen never rendered, not even for one frame. Confirmed
+this is the same bug in both `apps/desktop` and `apps/mobile` — identical `session.tsx`/`Router`
+shape in both.
+
+**Consequence for anyone who already created a wallet through the broken build** (this includes
+any signer who did so before this fix): the wallet itself is fine and usable (the encrypted
+keystore was saved correctly), but no recovery-phrase backup was ever shown, and there is
+currently no "reveal recovery phrase" option on an already-unlocked wallet to retroactively see
+it. Until that's added, anyone in this situation should treat that wallet as having no portable
+backup — recoverable only on the device/keychain it was created on.
+
+**Fix**: decoupled "wallet created" from "session activated." `createWallet()` no longer calls
+`applyWallet`/`setWallet` itself — it just creates the keystore and returns `{ wallet, mnemonic }`
+to the caller. A new `activateWallet(w)` function does what `createWallet` used to do
+(`setWallet`, derive the address, etc.), and it's called from `CreateWallet.tsx` only inside the
+"Continue to wallet" button's handler — which is itself disabled until the user checks "I've
+written this down and stored it safely." This makes the ordering structural, not
+timing-dependent: `wallet` cannot become non-null until the backup screen has actually been shown
+and acknowledged, which means `Router` cannot switch to `<Dashboard/>` early. `ImportWallet.tsx`
+was checked and doesn't need the same change — it has no post-creation confirmation step, since
+the user already has their mnemonic going in.
+
+**Verified**: full clean production build of `apps/desktop` (`tsc --noEmit && vite build`, 1,057
+modules, no errors) and a clean `tsc --noEmit` on `apps/mobile`; grepped every call site of
+`createWallet`/`activateWallet` across both apps to confirm none still assume the old
+mnemonic-only return shape or bypass the new gate.
+
 ## 2026-08-07 — Fixed a real bug in `SIGNER_SETUP.md`'s desktop app instructions
 
 A real signer following Option A hit `[plugin:vite:import-analysis] Failed to resolve entry for
